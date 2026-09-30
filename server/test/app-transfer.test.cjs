@@ -40,6 +40,8 @@ test('Spotify sign-in and private copy support legacy playlist fields without in
     } else if (path === '/playlists/copy123/items' && options.method === 'POST') {
       writes.push({ path, body: JSON.parse(options.body) });
       data = { snapshot_id: 'snapshot123' };
+    } else if (path.startsWith('/playlists/copy123/items?')) {
+      data = { items: writes.at(-1).body.uris.map((uri) => ({ item: { uri } })), next: null };
     } else {
       throw new Error(`Unexpected Spotify request: ${path}`);
     }
@@ -76,7 +78,7 @@ test('Spotify sign-in and private copy support legacy playlist fields without in
     });
     assert.equal(copyResponse.status, 200);
     assert.deepEqual(await copyResponse.json(), {
-      name: 'Road Trip (copy)', url: 'https://open.spotify.com/playlist/copy123', copied: 2, skipped: 0, total: 2
+      name: 'Road Trip (copy)', url: 'https://open.spotify.com/playlist/copy123', copied: 2, skipped: 0, total: 2, verified: true
     });
     assert.deepEqual(writes, [
       { path: '/me/playlists', body: { name: 'Road Trip (copy)', public: false, description: 'Driving songs' } },

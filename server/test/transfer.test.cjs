@@ -5,22 +5,31 @@ const { transferPlaylist } = require('../src/transfer.cjs');
 const sourceAccount = { user: { id: 'source-user' } };
 const destinationAccount = { user: { id: 'destination-user' } };
 const item = (index) => ({ item: { uri: `spotify:track:${index}a` }, is_local: false });
+function storedPage(uris, path) {
+  const offset = Number(new URL(path, 'https://api.spotify.com').searchParams.get('offset'));
+  return { items: uris.slice(offset, offset + 50).map((uri) => ({ item: { uri } })), next: offset + 50 < uris.length ? 'next page' : null };
+}
 
 test('copies every page in order using the 2026 items endpoints and 100 item writes', async () => {
   const calls = [];
+  const stored = [];
   const request = async (account, path, options = {}) => {
     calls.push({ account, path, options });
+    if (path.startsWith('/playlists/new123/items?')) return storedPage(stored, path);
     if (path === '/playlists/source123') return { name: 'Source', owner: { id: 'source-user' }, description: 'A good mix' };
     if (path.includes('offset=0')) return { items: Array.from({ length: 50 }, (_, i) => item(i)), next: 'https://api.spotify.com/v1/playlists/source123/items?limit=50&offset=50' };
     if (path.includes('offset=50')) return { items: Array.from({ length: 50 }, (_, i) => item(i + 50)), next: 'https://api.spotify.com/v1/playlists/source123/items?limit=50&offset=100' };
     if (path.includes('offset=100')) return { items: [...Array.from({ length: 23 }, (_, i) => item(i + 100)), { item: null }, { item: { uri: 'spotify:track:local1' }, is_local: true }], next: null };
     if (path === '/me/playlists') return { id: 'new123', external_urls: { spotify: 'https://open.spotify.com/playlist/new123' } };
-    if (path === '/playlists/new123/items') return { snapshot_id: 'snapshot' };
+    if (path === '/playlists/new123/items') {
+      stored.push(...options.body.uris);
+      return { snapshot_id: 'snapshot' };
+    }
     throw new Error(`Unexpected request: ${path}`);
   };
 
   const result = await transferPlaylist({ playlistId: 'source123', name: 'Source (copy)', sourceAccount, destinationAccount, request });
-  assert.deepEqual(result, { name: 'Source (copy)', url: 'https://open.spotify.com/playlist/new123', copied: 123, skipped: 2, total: 125 });
+  assert.deepEqual(result, { name: 'Source (copy)', url: 'https://open.spotify.com/playlist/new123', copied: 123, skipped: 2, total: 125, verified: true });
   const writes = calls.filter((call) => call.path === '/playlists/new123/items');
   assert.deepEqual(writes.map((call) => call.options.body.uris.length), [100, 23]);
   assert.equal(writes[0].options.body.uris[0], 'spotify:track:0a');
@@ -34,6 +43,7 @@ test('copies legacy track payloads across pages and respects an explicit modern 
   const writes = [];
   const reads = [];
   const request = async (_account, path, options = {}) => {
+    if (path.startsWith('/playlists/legacycopy123/items?')) return storedPage(writes.flat(), path);
     if (path === '/playlists/source123') return { owner: { id: 'source-user' } };
     if (path === '/playlists/source123/items?limit=50&offset=0&additional_types=episode') {
       reads.push(path);
@@ -68,7 +78,7 @@ test('copies legacy track payloads across pages and respects an explicit modern 
 
   const result = await transferPlaylist({ playlistId: 'source123', name: 'Legacy copy', sourceAccount, destinationAccount, request });
   assert.deepEqual(result, {
-    name: 'Legacy copy', url: 'https://open.spotify.com/playlist/legacycopy123', copied: 52, skipped: 3, total: 55
+    name: 'Legacy copy', url: 'https://open.spotify.com/playlist/legacycopy123', copied: 52, skipped: 3, total: 55, verified: true
   });
   assert.equal(reads.length, 2);
   assert.deepEqual(writes, [[...firstUris, 'spotify:track:last', 'spotify:episode:episode1', 'spotify:track:modern']]);
@@ -129,4 +139,57 @@ test('reports the created playlist and copied count if Spotify fails during a la
     transferPlaylist({ playlistId: 'source123', name: 'Partial', sourceAccount, destinationAccount, request }),
     (error) => error.message === 'Rate limited' && error.partial.copied === 100 && error.partial.url === 'https://open.spotify.com/playlist/new123'
   );
+});
+
+test('a successful write with missing or reordered destination items is reported as partial', async () => {
+  for (const destinationUris of [['spotify:track:first'], ['spotify:track:second', 'spotify:track:first']]) {
+    const request = async (account, path, options = {}) => {
+      if (path === '/playlists/source123') return { owner: { id: 'source-user' } };
+      if (path.startsWith('/playlists/source123/items?')) return {
+        items: [{ item: { uri: 'spotify:track:first' } }, { item: { uri: 'spotify:track:second' } }], next: null
+      };
+      if (path === '/me/playlists') return { id: 'copy123' };
+      if (path === '/playlists/copy123/items' && options.method === 'POST') return { snapshot_id: 'accepted' };
+      if (path.startsWith('/playlists/copy123/items?')) {
+        assert.equal(account, destinationAccount);
+        return storedPage(destinationUris, path);
+      }
+      throw new Error(`Unexpected request ${path}`);
+    };
+    await assert.rejects(transferPlaylist({ playlistId: 'source123', name: 'Check copy', sourceAccount, destinationAccount, request }),
+      (error) => /different item count or order/.test(error.message) && error.partial.url.endsWith('/copy123') && error.partial.copied === 2);
+  }
+});
+
+test('preserves duplicates, episodes and original references when Spotify relinks tracks', async () => {
+  const writes = [];
+  const request = async (_account, path, options = {}) => {
+    if (path === '/playlists/source123') return { owner: { id: 'source-user' } };
+    if (path.startsWith('/playlists/source123/items?')) return {
+      items: [
+        { item: { uri: 'spotify:track:playable', linked_from: { uri: 'spotify:track:original' } } },
+        { item: { uri: 'spotify:track:playable', linked_from: { uri: 'spotify:track:original' } } },
+        { item: { uri: 'spotify:episode:episode1' } },
+        { item: { uri: 'spotify:track:local', is_local: true } }
+      ], next: null
+    };
+    if (path === '/me/playlists') return { id: 'copy123' };
+    if (path === '/playlists/copy123/items') { writes.push(...options.body.uris); return { snapshot_id: 'saved' }; }
+    if (path.startsWith('/playlists/copy123/items?')) return storedPage(writes, path);
+    throw new Error(`Unexpected request ${path}`);
+  };
+  const result = await transferPlaylist({ playlistId: 'source123', name: 'References', sourceAccount, destinationAccount, request });
+  assert.deepEqual(writes, ['spotify:track:original', 'spotify:track:original', 'spotify:episode:episode1']);
+  assert.equal(result.verified, true);
+  assert.equal(result.skipped, 1);
+});
+
+test('rejects incomplete pagination and missing playlist IDs before creating a copy', async () => {
+  const request = async (_account, path, options = {}) => {
+    assert.notEqual(options.method, 'POST');
+    if (path === '/playlists/source123') return { owner: { id: 'source-user' } };
+    return { items: [], next: 'unexpected next page' };
+  };
+  await assert.rejects(transferPlaylist({ playlistId: 'source123', name: 'Incomplete', sourceAccount, destinationAccount, request }), /incomplete playlist page/);
+  await assert.rejects(transferPlaylist({ name: 'No ID', sourceAccount, destinationAccount, request }), (error) => error.status === 400);
 });
