@@ -7,6 +7,6 @@
     "dev": "node scripts/dev.mjs",
     "build": "npm run build --workspace client && node scripts/copy-public.mjs",
     "start": "npm run start --workspace server",
-    "test": "node --test server/test/*.test.cjs"
+    "test": "node --test server/test/*.test.cjs client/test/*.test.mjs"
   }
 }
