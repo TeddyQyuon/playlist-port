@@ -70,7 +70,7 @@ test('OAuth state is checked and account tokens remain server-side', async () =>
     const second = await nativeFetch(`${base}/api/auth/start/destination`, {
       headers: { Cookie: connectedCookie }, redirect: 'manual'
     });
-    const secondCookie = second.headers.get('set-cookie').split(';')[0];
+    const secondCookie = `${connectedCookie}; ${second.headers.get('set-cookie').split(';')[0]}`;
     const secondState = new URL(second.headers.get('location')).searchParams.get('state');
     denyProfile = true;
     const refused = await nativeFetch(`${base}/api/auth/callback?code=second&state=${secondState}`, {
@@ -81,7 +81,7 @@ test('OAuth state is checked and account tokens remain server-side', async () =>
     assert.match(message, /Users Management/);
     assert.doesNotMatch(message, /own or collaborate/);
     const preserved = await nativeFetch(`${base}/api/session`, {
-      headers: { Cookie: refused.headers.get('set-cookie').split(';')[0] }
+      headers: { Cookie: `${connectedCookie}; ${refused.headers.get('set-cookie').split(';')[0]}` }
     });
     assert.deepEqual((await preserved.json()).source, { id: 'person123', name: 'Test Listener' });
   } finally {
