@@ -5,6 +5,7 @@ import {
   FiInfo, FiLink2, FiSearch, FiShield, FiX
 } from 'react-icons/fi';
 import { api } from './api.js';
+import { readSessionItem, removeSessionItem, writeSessionItem } from './storage.js';
 
 const services = [
   { name: 'Spotify', Icon: SiSpotify, ready: true },
@@ -41,9 +42,9 @@ export default function App() {
   const [playlists, setPlaylists] = useState([]);
   const [nextOffset, setNextOffset] = useState(null);
   const [playlistsLoading, setPlaylistsLoading] = useState(false);
-  const [selectedId, setSelectedId] = useState(() => sessionStorage.getItem('playlist-port.selected') || '');
-  const [newName, setNewName] = useState(() => sessionStorage.getItem('playlist-port.name') || '');
-  const [useSecondAccount, setUseSecondAccount] = useState(() => sessionStorage.getItem('playlist-port.second') === 'true');
+  const [selectedId, setSelectedId] = useState(() => readSessionItem('playlist-port.selected'));
+  const [newName, setNewName] = useState(() => readSessionItem('playlist-port.name'));
+  const [useSecondAccount, setUseSecondAccount] = useState(() => readSessionItem('playlist-port.second') === 'true');
   const [error, setError] = useState('');
   const [partial, setPartial] = useState(null);
   const [result, setResult] = useState(null);
@@ -99,7 +100,7 @@ export default function App() {
       setSession((current) => ({ ...current, [slot]: null }));
       if (slot === 'source') {
         setSelectedId('');
-        sessionStorage.removeItem('playlist-port.selected');
+        removeSessionItem('playlist-port.selected');
         setResult(null);
       }
     } catch (err) {
@@ -109,10 +110,10 @@ export default function App() {
 
   function choosePlaylist(playlist) {
     setSelectedId(playlist.id);
-    sessionStorage.setItem('playlist-port.selected', playlist.id);
+    writeSessionItem('playlist-port.selected', playlist.id);
     const name = `${playlist.name} (copy)`;
     setNewName(name.slice(0, 100));
-    sessionStorage.setItem('playlist-port.name', name.slice(0, 100));
+    writeSessionItem('playlist-port.name', name.slice(0, 100));
     setError('');
     setPartial(null);
     setResult(null);
@@ -120,7 +121,7 @@ export default function App() {
 
   function chooseDestination(second) {
     setUseSecondAccount(second);
-    sessionStorage.setItem('playlist-port.second', String(second));
+    writeSessionItem('playlist-port.second', String(second));
   }
 
   async function startTransfer(event) {
@@ -279,7 +280,7 @@ export default function App() {
                 <p>{selectedIsEmpty ? 'Choose a playlist with tracks or episodes. An empty playlist cannot be copied.' : selected ? selected.count == null ? 'Items will be checked when you copy.' : `${selected.count} items ready to transfer` : 'Choose a playlist to see it here.'}</p>
                 {selected && <a className="source-link" href={selected.url} target="_blank" rel="noreferrer"><SiSpotify aria-hidden="true" /> View original in Spotify <FiExternalLink aria-hidden="true" /></a>}
                 <label className="name-label" htmlFor="new-name">New playlist name</label>
-                <input id="new-name" className="name-input" maxLength={100} required value={newName} onChange={(event) => { setNewName(event.target.value); sessionStorage.setItem('playlist-port.name', event.target.value); }} placeholder="Select a playlist first" disabled={!selected || transferring} />
+                <input id="new-name" className="name-input" maxLength={100} required value={newName} onChange={(event) => { setNewName(event.target.value); writeSessionItem('playlist-port.name', event.target.value); }} placeholder="Select a playlist first" disabled={!selected || transferring} />
                 <button className="transfer-button" type="submit" disabled={!session.configured || !selected || selectedIsEmpty || !newName.trim() || (useSecondAccount && !session.destination) || transferring}>
                   {transferring ? 'Copying your playlist…' : selectedIsEmpty ? 'Playlist is empty' : 'Copy playlist'}
                   {!transferring && <FiArrowRight aria-hidden="true" />}
