@@ -1,7 +1,16 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-test('full OAuth and paginated copy use the destination account, preserve the source, and verify stored items', async (t) => {
+const accountPlans = [
+  { label: 'Free to Free', source: 'free', destination: 'free' },
+  { label: 'Free to Premium', source: 'free', destination: 'premium' },
+  { label: 'Premium to Free', source: 'premium', destination: 'free' },
+  { label: 'Premium to Premium', source: 'premium', destination: 'premium' },
+  // Development Mode profiles can omit the subscription field entirely.
+  { label: 'subscription fields absent' }
+];
+
+async function verifyCrossAccount(t, plans) {
   Object.assign(process.env, {
     SPOTIFY_CLIENT_ID: 'test-client-id', SPOTIFY_CLIENT_SECRET: 'test-client-secret',
     SPOTIFY_REDIRECT_URI: 'http://127.0.0.1:3001/api/auth/callback',
@@ -30,7 +39,10 @@ test('full OAuth and paginated copy use the destination account, preserve the so
       const path = address.slice('https://api.spotify.com/v1'.length);
       const slot = Object.keys(accessTokens).find((key) => options.headers.Authorization === `Bearer ${accessTokens[key]}`);
       assert.ok(slot);
-      if (path === '/me') data = { id: `${slot}user`, display_name: `${slot} listener` };
+      if (path === '/me') data = {
+        id: `${slot}user`, display_name: `${slot} listener`,
+        ...(plans[slot] ? { product: plans[slot] } : {})
+      };
       else if (path === '/playlists/source123') {
         assert.equal(slot, 'source');
         data = { owner: { id: 'sourceuser' }, description: 'Test playlist' };
@@ -102,4 +114,8 @@ test('full OAuth and paginated copy use the destination account, preserve the so
   });
   assert.equal(refused.status, 403);
   assert.deepEqual(writes, [100, 23]);
-});
+}
+
+for (const plans of accountPlans) {
+  test(`full OAuth and verified paginated copy work with ${plans.label} accounts`, (t) => verifyCrossAccount(t, plans));
+}
