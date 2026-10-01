@@ -6,6 +6,7 @@ const { SpotifyError, exchangeCode, spotifyRequest } = require('./spotify.cjs');
 const { transferPlaylist } = require('./transfer.cjs');
 const { sealedSession } = require('./sealed-session.cjs');
 const { clientDocument } = require('./client-document.cjs');
+const { securityHeaders, protectApiWrites } = require('./security.cjs');
 
 const app = express();
 const clientOrigin = process.env.CLIENT_ORIGIN ||
@@ -22,6 +23,12 @@ const configured = Boolean(
 
 app.disable('x-powered-by');
 if (clientOrigin.startsWith('https://')) app.set('trust proxy', 1);
+app.use(securityHeaders);
+app.use('/api', protectApiWrites(clientOrigin));
+// Express otherwise runs GET handlers for HEAD, including OAuth mutations.
+app.head(['/api/auth/start/:slot', '/api/auth/callback'], (_req, res) => {
+  res.set('Allow', 'GET').status(405).end();
+});
 app.use(express.json({ limit: '10kb' }));
 const sessionMiddleware = configured
   ? sealedSession(
@@ -36,14 +43,6 @@ const sessionMiddleware = configured
     };
 
 app.use(sessionMiddleware);
-
-app.use('/api', (req, res, next) => {
-  res.set('Cache-Control', 'no-store');
-  if (req.method !== 'GET' && req.method !== 'HEAD' && req.headers.origin && req.headers.origin !== clientOrigin) {
-    return res.status(403).json({ message: 'Request origin was not allowed.' });
-  }
-  next();
-});
 
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const publicAccount = (account) => account ? account.user : null;
