@@ -163,7 +163,7 @@ export default function App() {
         <section className="intro">
           <div className="intro-kicker"><span className="kicker-line" /> YOUR MUSIC, YOUR WAY</div>
           <h1>Move your playlists.<br /><span>Keep every beat.</span></h1>
-          <p>Choose your music service, connect Spotify, and make a private copy of your playlist in the same account or another one.</p>
+          <p>Choose your music service, connect Spotify, and make a new copy of your playlist in the same account or another one.</p>
           <div className="intro-meta"><FiShield aria-hidden="true" /> Your playlists stay on Spotify. Nothing is deleted.</div>
         </section>
 
@@ -253,7 +253,7 @@ export default function App() {
 
             <div className="workflow-side">
               <div className="destination-card">
-                <div className="step-heading"><span className="step-number">03</span><div><h3>Choose a destination</h3><p>Your copy will be private.</p></div></div>
+                <div className="step-heading"><span className="step-number">03</span><div><h3>Choose a destination</h3><p>Your copy stays off your public profile. Anyone with its link can view it until you choose “Make private” in Spotify.</p></div></div>
                 <label className={`destination-option ${!useSecondAccount ? 'active' : ''}`}>
                   <input type="radio" name="destination" checked={!useSecondAccount} onChange={() => chooseDestination(false)} />
                   <span className="radio-ui" />
@@ -290,7 +290,7 @@ export default function App() {
             </div>
           </div>
 
-          {result && <div className="success-card" role="status"><div className="success-icon"><FiCheckCircle aria-hidden="true" /></div><div><span className="eyebrow">TRANSFER COMPLETE</span><h3>{result.name} is ready.</h3><p>{result.copied} items copied{result.skipped ? ` · ${result.skipped} unavailable or local items skipped` : ''}.</p></div><a href={result.url} target="_blank" rel="noreferrer">Open in Spotify <FiExternalLink aria-hidden="true" /></a></div>}
+          {result && <div className="success-card" role="status"><div className="success-icon"><FiCheckCircle aria-hidden="true" /></div><div><span className="eyebrow">TRANSFER COMPLETE</span><h3>{result.name} is ready.</h3><p>{result.copied} items copied{result.skipped ? ` · ${result.skipped} unavailable or local items skipped` : ''}.</p><p>To restrict link access, open the playlist and choose “Make private” in Spotify.</p></div><a href={result.url} target="_blank" rel="noreferrer">Open in Spotify <FiExternalLink aria-hidden="true" /></a></div>}
         </section>
       </main>
 
