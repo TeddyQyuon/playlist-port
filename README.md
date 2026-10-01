@@ -59,6 +59,8 @@ server/test/                Mocked transfer tests
 
 The root `app.cjs` exports the Express API as one Vercel Function. `npm run build` puts the Vite frontend in the root `public/` directory for Vercel's CDN. The server uses AES-GCM encrypted, HttpOnly cookies for Spotify connections so sessions survive across Vercel function instances; only the server can read their contents.
 
+HTML is served with `Cache-Control: no-store` and without filesystem-based cache validators. This prevents cached HTML from requesting a removed JavaScript bundle after a deployment. Missing asset URLs return 404 instead of the app's HTML document.
+
 1. Import this repository into Vercel. Keep its root directory at the repository root. The `vercel.json` file selects Express and runs `npm run build`.
 2. Add **Production** environment variables `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REDIRECT_URI`, `CLIENT_ORIGIN` and `SESSION_SECRET`. Use the permanent production domain for `CLIENT_ORIGIN`, for example `https://playlist-port.vercel.app`. Set `SPOTIFY_REDIRECT_URI` to that same origin plus `/api/auth/callback`. Generate a unique random `SESSION_SECRET` of at least 32 characters. Never add these values to Git.
 3. Register that **exact** HTTPS redirect URI in the Spotify Developer Dashboard and allowlist each Spotify account that will use the app. Redeploy after changing Vercel environment variables.
