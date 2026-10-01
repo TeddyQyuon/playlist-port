@@ -205,7 +205,7 @@ export default function App() {
             <div>
               <span className="eyebrow">SPOTIFY → SPOTIFY</span>
               <h2 id="workspace-title">Make your first move.</h2>
-              <p>Copy a playlist into this account or another Spotify account.</p>
+              <p>Copy a playlist into this account or another one. Spotify Free and Premium accounts are supported.</p>
             </div>
             <div className="workspace-stamp"><SiSpotify aria-hidden="true" /> SPOTIFY</div>
           </div>
@@ -222,7 +222,7 @@ export default function App() {
 
           <div className="workflow-grid">
             <div className="workflow-main">
-              <div className="step-heading"><span className="step-number">01</span><div><h3>Connect your account</h3><p>Spotify asks for playlist and profile access.</p></div></div>
+              <div className="step-heading"><span className="step-number">01</span><div><h3>Connect your account</h3><p>Approve playlist access on Spotify. During testing, both accounts must be approved by the site owner.</p></div></div>
               <Account
                 label="SOURCE ACCOUNT"
                 account={session.source}
