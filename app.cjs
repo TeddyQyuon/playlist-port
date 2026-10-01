@@ -2,6 +2,7 @@
 // API used locally.
 const express = require('express');
 const app = express();
+app.disable('x-powered-by');
 app.use(require('./server/src/app.cjs'));
 
 module.exports = app;
