@@ -14,7 +14,9 @@ The client uses React, Vite, plain JavaScript, CSS, and React Icons. The server 
 
 ## Spotify developer setup
 
-Spotify's **Development Mode** requires the developer account to have Spotify Premium and currently limits a new app to five authorized users. Add both Spotify accounts to the app's user allowlist if you want to transfer between two accounts. The account authorizing the app must be able to access the playlists it selects. A public URL does not remove Spotify's development-user limit.
+The source and destination can each use **Spotify Free or Premium**. Playlist Port does not check either account's subscription, and copying playlists does not use Premium-only playback features.
+
+Spotify's **Development Mode** requires the account that owns the developer app to keep an active Spotify Premium subscription and currently limits a new app to five authorized users. This requirement applies to the app owner, not to every account transferring playlists. Add both transfer accounts to the app's user allowlist. If either transfer account also owns the developer app, that account must retain Premium for the app to function. The source account must own or collaborate on the playlist it selects. A public URL does not remove Spotify's development-user limit. See [Spotify's current Development Mode rules](https://developer.spotify.com/documentation/web-api/concepts/quota-modes).
 
 1. Create an app at [Spotify for Developers](https://developer.spotify.com/dashboard). Copy its **Client ID** and **Client Secret**.
 2. In the Spotify app settings, register this exact redirect URI:
