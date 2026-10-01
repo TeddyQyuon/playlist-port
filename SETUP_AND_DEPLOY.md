@@ -32,7 +32,7 @@ This project currently copies a Spotify playlist to a **new private playlist** i
    Generate `SESSION_SECRET` with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`. Do not put `server/.env` or the real secret in Git.
 
 5. In your Spotify Developer Dashboard, open the **Playlist Port** app settings and add the exact local redirect URI `http://127.0.0.1:3001/api/auth/callback`. Keep the production redirect URI too. Spotify accepts HTTP for `127.0.0.1`; do not substitute `localhost`.
-6. In the app's **Users Management**, add the Spotify account you will sign in with, using its Spotify account name and email. A Development Mode app needs an allowlisted account and its owner needs Spotify Premium. Add a second account too if you want to transfer between accounts.
+6. In the app's **Users Management**, add both transfer accounts, using their Spotify account names and emails. The source and destination may each use Spotify Free or Premium. Only the account that owns the developer app must keep Premium while the app is in Development Mode. If that owner is also one of the transfer accounts, it must retain Premium. See [Spotify's Development Mode rules](https://developer.spotify.com/documentation/web-api/concepts/quota-modes).
 7. Run `npm run dev`. Open `http://127.0.0.1:5173` in your browser. The terminal runs Vite and Express together. You should now be able to click **Connect**.
 
 ## 2. Deploy from this folder to your existing Vercel project
