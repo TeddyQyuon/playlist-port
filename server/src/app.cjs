@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const { SpotifyError, exchangeCode, spotifyRequest } = require('./spotify.cjs');
 const { transferPlaylist } = require('./transfer.cjs');
 const { sealedSession } = require('./sealed-session.cjs');
+const { clientDocument } = require('./client-document.cjs');
 
 const app = express();
 const clientOrigin = process.env.CLIENT_ORIGIN ||
@@ -158,8 +159,10 @@ app.use('/api', (_req, res) => res.status(404).json({ message: 'API route not fo
 
 const dist = path.resolve(__dirname, '../../client/dist');
 if (fs.existsSync(dist)) {
-  app.use(express.static(dist));
-  app.get('*', (req, res) => res.sendFile(path.join(dist, 'index.html')));
+  const sendClientDocument = clientDocument(path.join(dist, 'index.html'));
+  app.get(['/', '/index.html'], sendClientDocument);
+  app.use(express.static(dist, { index: false }));
+  app.get('*', sendClientDocument);
 }
 
 app.use((error, _req, res, _next) => {
