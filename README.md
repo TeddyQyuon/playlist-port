@@ -1,6 +1,6 @@
 # Playlist Port
 
-A React + Express playlist transfer app. The first release copies Spotify playlists to the same Spotify account or to a second Spotify account. It creates a **new private playlist** and leaves the original untouched.
+A React + Express playlist transfer app. The first release copies Spotify playlists to the same Spotify account or to a second Spotify account. It creates a **new playlist hidden from the destination's public profile** and leaves the original untouched.
 
 ## What it does
 
@@ -8,7 +8,7 @@ A React + Express playlist transfer app. The first release copies Spotify playli
 2. Pick a playlist you own or collaborate on.
 3. Choose the same account or connect another Spotify account as the destination.
 4. Name the copy and transfer its tracks and episodes in their original order.
-5. Open the new playlist in Spotify. The result shows any unavailable or local items that could not be copied.
+5. Open the new playlist in Spotify. The result shows any unavailable or local items that could not be copied. Choose **Make private** in Spotify if you want to restrict access through its link.
 
 The client uses React, Vite, plain JavaScript, CSS, and React Icons. The server uses Node.js and Express. OAuth credentials and access tokens stay in the server session; the browser receives only account names and playlist details. This first release has no database or transfer history.
 
@@ -39,6 +39,8 @@ Spotify's **Development Mode** requires the developer account to have Spotify Pr
 ## Current Spotify API behavior
 
 This app uses Spotify's 2026 playlist routes: `GET /playlists/{id}/items`, `POST /me/playlists`, and `POST /playlists/{id}/items`. Spotify permits item reads for playlists owned by or collaborative with the signed-in user. It cannot copy local files or removed items; those appear in the skipped count. The app copies metadata references to Spotify items, never audio files.
+
+The app creates copies with `public: false`. This keeps them off the user's public profile and out of search results; it does **not** restrict access through the playlist link. Spotify's Web API cannot change playlist access control. Use **Make private** in Spotify to restrict access. See [Spotify's playlist status documentation](https://developer.spotify.com/documentation/web-api/concepts/playlists#public-private-and-collaborative-status).
 
 Spotify can impose rate and development quotas. If an error occurs after the destination playlist was created, the app shows a link to the partial playlist and the number of items copied. Do not press Copy again without checking it, since that would create another playlist.
 
