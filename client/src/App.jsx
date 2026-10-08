@@ -56,6 +56,11 @@ export default function App() {
   const selectedIsEmpty = selected?.count === 0;
   const shownServices = services.filter((service) => service.name.toLowerCase().includes(serviceQuery.toLowerCase()));
   const shownPlaylists = playlists.filter((playlist) => playlist.name.toLowerCase().includes(playlistQuery.toLowerCase()));
+  const currentStep = result ? 4 : !session.source ? 1 : !selected ? 2 : 3;
+  function openWorkflow() {
+    workflowRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    workflowRef.current?.focus({ preventScroll: true });
+  }
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -165,6 +170,7 @@ export default function App() {
           <h1>Move your playlists.<br /><span>Keep every beat.</span></h1>
           <p>Choose your music service, connect Spotify, and make a new copy of your playlist in the same account or another one.</p>
           <div className="intro-meta"><FiShield aria-hidden="true" /> Your playlists stay on Spotify. Nothing is deleted.</div>
+          <button type="button" className="start-button" onClick={openWorkflow}>Start with Spotify <FiArrowRight aria-hidden="true" /></button>
         </section>
 
         <section className="services-section" aria-labelledby="services-title">
@@ -186,8 +192,8 @@ export default function App() {
               <button
                 key={name}
                 type="button"
-                className={`service-card ${ready ? 'service-ready' : 'service-later'}`}
-                onClick={ready ? () => workflowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) : undefined}
+                className={`service-card service-${name.toLowerCase().replaceAll(' ', '-')} ${ready ? 'service-ready' : 'service-later'}`}
+                onClick={ready ? openWorkflow : undefined}
                 disabled={!ready}
                 aria-label={ready ? `Choose ${name}` : `${name}, coming later`}
               >
@@ -200,7 +206,7 @@ export default function App() {
           {shownServices.length === 0 && <p className="empty-search">No matching service yet. Spotify is available in this release.</p>}
         </section>
 
-        <section className="workspace" ref={workflowRef} aria-labelledby="workspace-title">
+        <section className="workspace" ref={workflowRef} tabIndex={-1} aria-labelledby="workspace-title">
           <div className="workspace-title-row">
             <div>
               <span className="eyebrow">SPOTIFY → SPOTIFY</span>
@@ -209,6 +215,15 @@ export default function App() {
             </div>
             <div className="workspace-stamp"><SiSpotify aria-hidden="true" /> SPOTIFY</div>
           </div>
+
+          <ol className="workflow-progress" aria-label="Playlist copy progress">
+            {['Connect account', 'Choose playlist', 'Review & copy', 'Complete'].map((label, index) => (
+              <li key={label} className={index + 1 < currentStep ? 'done' : index + 1 === currentStep ? 'current' : ''} aria-current={index + 1 === currentStep ? 'step' : undefined}>
+                <span aria-hidden="true">{index + 1 < currentStep ? <FiCheck /> : index + 1}</span>{label}
+              </li>
+            ))}
+          </ol>
+          {sessionLoading && <p className="connection-status" role="status">Checking your Spotify connection…</p>}
 
           {!sessionLoading && !session.configured && (
             <div className="setup-note" role="status">
@@ -285,6 +300,7 @@ export default function App() {
                   {transferring ? 'Copying your playlist…' : selectedIsEmpty ? 'Playlist is empty' : 'Copy playlist'}
                   {!transferring && <FiArrowRight aria-hidden="true" />}
                 </button>
+                {selected && useSecondAccount && !session.destination && <p className="transfer-guidance">Connect the destination account above to enable copying.</p>}
                 <span className="transfer-footnote"><FiShield aria-hidden="true" /> Original playlist stays untouched</span>
               </form>
             </div>
