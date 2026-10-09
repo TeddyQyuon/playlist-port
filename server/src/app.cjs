@@ -42,7 +42,7 @@ const sessionMiddleware = configured
       next();
     };
 
-app.use(sessionMiddleware);
+app.use('/api', sessionMiddleware);
 
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const publicAccount = (account) => account ? account.user : null;
