@@ -153,3 +153,9 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #b8ff
 .service-spotify .service-content svg,.account-icon svg{color:#1ed760}.service-apple-music .service-content svg{color:#fa586a}.service-youtube .service-content svg,.service-youtube-music .service-content svg{color:#ff4747}.service-deezer .service-content svg{color:#bb82ff}
 .small-button,.text-button,.search-field button,.alert button{min-height:44px;min-width:44px}
 @media(max-width:650px){.workflow-progress{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:24px}.workflow-progress li{font-size:11px;padding:10px 8px}.intro{padding-top:38px}.start-button{width:100%;max-width:320px}.service-content{white-space:normal}.service-content strong{line-height:1.2}}
+
+.playlist-row.unavailable{cursor:not-allowed;opacity:.82}
+.playlist-row.unavailable:hover{background:transparent}
+.playlist-row.unavailable .playlist-info strong{color:#ccd0dd}
+.playlist-row.unavailable .playlist-check{color:#c5b77e}
+.playlist-restriction{color:#d6c887;font-size:11px;line-height:1.3}
