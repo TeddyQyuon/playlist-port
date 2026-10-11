@@ -129,6 +129,8 @@ app.get('/api/playlists', wrap(async (req, res) => {
         name: item.name,
         count: item.items?.total ?? item.tracks?.total ?? null,
         owner: item.owner?.display_name || item.owner?.id || 'Spotify',
+        image: item.images?.[0]?.url || null,
+        isOwner: item.owner?.id === req.session.source.user.id,
         canCopy: true,
         url: item.external_urls?.spotify || `https://open.spotify.com/playlist/${item.id}`
       })),
@@ -152,11 +154,14 @@ async function fetchPublicPlaylistMetadata(id) {
       const d = JSON.parse(m[1]);
       const entity = d.props?.pageProps?.state?.data?.entity;
       if (entity) {
+        const cover = entity.coverArt?.sources?.[0]?.url || entity.visualIdentity?.image?.[0]?.url || null;
         return {
           id,
           name: entity.name || entity.title || 'Public Playlist',
           count: entity.trackList?.length ?? null,
           owner: entity.subtitle || 'Spotify',
+          image: cover,
+          isOwner: false,
           canCopy: true,
           url: `https://open.spotify.com/playlist/${id}`
         };
@@ -195,6 +200,8 @@ app.get('/api/playlist/:id', wrap(async (req, res) => {
       name: item.name,
       count: item.items?.total ?? item.tracks?.total ?? null,
       owner: item.owner?.display_name || item.owner?.id || 'Spotify',
+      image: item.images?.[0]?.url || null,
+      isOwner: item.owner?.id === req.session.source.user.id,
       canCopy: true,
       url: item.external_urls?.spotify || `https://open.spotify.com/playlist/${item.id}`
     });

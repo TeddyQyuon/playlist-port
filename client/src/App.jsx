@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { SiApplemusic, SiDeezer, SiSpotify, SiTidal, SiYoutube, SiYoutubemusic } from 'react-icons/si';
 import {
-  FiArrowRight, FiCheck, FiCheckCircle, FiChevronDown, FiExternalLink,
-  FiInfo, FiLink2, FiSearch, FiShield, FiX
+  FiArrowRight, FiCheck, FiCheckCircle, FiChevronDown, FiCopy, FiExternalLink,
+  FiHeart, FiInfo, FiLink2, FiMusic, FiRefreshCw, FiSearch, FiShield, FiX
 } from 'react-icons/fi';
 import { api } from './api.js';
 import { readSessionItem, removeSessionItem, writeSessionItem } from './storage.js';
@@ -46,6 +46,8 @@ export default function App() {
   const [newName, setNewName] = useState(() => readSessionItem('playlist-port.name'));
   const [pastedUrl, setPastedUrl] = useState('');
   const [urlLoading, setUrlLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('all');
+  const [copiedLink, setCopiedLink] = useState(false);
   const [useSecondAccount, setUseSecondAccount] = useState(() => readSessionItem('playlist-port.second') === 'true');
   const [error, setError] = useState('');
   const [partial, setPartial] = useState(null);
@@ -55,11 +57,21 @@ export default function App() {
   const transferLock = useRef(false);
 
   const selected = selectedId === 'liked-songs'
-    ? { id: 'liked-songs', name: 'Liked Songs', count: null, owner: session.source?.name || 'You', canCopy: true, url: 'https://open.spotify.com/collection/tracks' }
+    ? { id: 'liked-songs', name: 'Liked Songs', count: null, owner: session.source?.name || 'You', canCopy: true, isOwner: true, url: 'https://open.spotify.com/collection/tracks' }
     : playlists.find((playlist) => playlist.id === selectedId);
   const selectedIsEmpty = selected?.count === 0;
   const shownServices = services.filter((service) => service.name.toLowerCase().includes(serviceQuery.toLowerCase()));
-  const shownPlaylists = playlists.filter((playlist) => playlist.name.toLowerCase().includes(playlistQuery.toLowerCase()));
+
+  const mineCount = playlists.filter((p) => p.isOwner).length;
+  const followedCount = playlists.filter((p) => !p.isOwner).length;
+  const filteredByTab = playlists.filter((playlist) => {
+    if (activeTab === 'mine') return playlist.isOwner;
+    if (activeTab === 'followed') return !playlist.isOwner;
+    return true;
+  });
+  const shownPlaylists = filteredByTab.filter((playlist) =>
+    playlist.name.toLowerCase().includes(playlistQuery.toLowerCase())
+  );
   const currentStep = result ? 4 : !session.source ? 1 : !selected ? 2 : 3;
   function openWorkflow() {
     workflowRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
@@ -298,37 +310,87 @@ export default function App() {
               <div className="step-heading second-step"><span className="step-number">02</span><div><h3>Choose a playlist</h3><p>Select any playlist you own or follow, your Liked Songs, or paste a public Spotify playlist link.</p></div></div>
               {session.source ? (
                 <div className="playlist-panel">
-                  <button
-                    type="button"
-                    className={`liked-songs-btn ${selectedId === 'liked-songs' ? 'selected' : ''}`}
-                    onClick={selectLikedSongs}
-                  >
-                    <span className="liked-art">♥</span>
-                    <div className="liked-info">
-                      <strong>Liked Songs</strong>
-                      <span>Transfer your saved tracks to a new playlist</span>
-                    </div>
-                    <span className="liked-badge">
-                      {selectedId === 'liked-songs' ? <FiCheck aria-hidden="true" /> : <FiArrowRight aria-hidden="true" />}
-                    </span>
-                  </button>
+                  <div className="playlist-panel-header">
+                    <button
+                      type="button"
+                      className={`liked-songs-btn ${selectedId === 'liked-songs' ? 'selected' : ''}`}
+                      onClick={selectLikedSongs}
+                    >
+                      <span className="liked-art">♥</span>
+                      <div className="liked-info">
+                        <strong>Liked Songs</strong>
+                        <span>Transfer your saved tracks to a new playlist</span>
+                      </div>
+                      <span className="liked-badge">
+                        {selectedId === 'liked-songs' ? <FiCheck aria-hidden="true" /> : <FiArrowRight aria-hidden="true" />}
+                      </span>
+                    </button>
 
-                  <form onSubmit={loadPastedPlaylist} className="url-search-form">
-                    <div className="search-field url-search">
-                      <FiLink2 aria-hidden="true" />
+                    <form onSubmit={loadPastedPlaylist} className="url-search-form">
+                      <div className="search-field url-search">
+                        <FiLink2 aria-hidden="true" />
+                        <input
+                          value={pastedUrl}
+                          onChange={(event) => setPastedUrl(event.target.value)}
+                          placeholder="Paste any Spotify playlist link…"
+                        />
+                        {pastedUrl && (
+                          <button type="button" className="clear-inline-btn" onClick={() => setPastedUrl('')} aria-label="Clear URL">
+                            <FiX />
+                          </button>
+                        )}
+                        <button type="submit" className="small-button" disabled={urlLoading || !pastedUrl.trim()}>
+                          {urlLoading ? 'Loading…' : 'Load URL'}
+                        </button>
+                      </div>
+                    </form>
+
+                    <div className="filter-row">
+                      <div className="playlist-tabs">
+                        <button
+                          type="button"
+                          className={`tab-btn ${activeTab === 'all' ? 'active' : ''}`}
+                          onClick={() => setActiveTab('all')}
+                        >
+                          All ({playlists.length})
+                        </button>
+                        <button
+                          type="button"
+                          className={`tab-btn ${activeTab === 'mine' ? 'active' : ''}`}
+                          onClick={() => setActiveTab('mine')}
+                        >
+                          Created by You ({mineCount})
+                        </button>
+                        <button
+                          type="button"
+                          className={`tab-btn ${activeTab === 'followed' ? 'active' : ''}`}
+                          onClick={() => setActiveTab('followed')}
+                        >
+                          Followed ({followedCount})
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="search-field playlist-search">
+                      <FiSearch aria-hidden="true" />
+                      <span className="sr-only">Search loaded playlists</span>
                       <input
-                        value={pastedUrl}
-                        onChange={(event) => setPastedUrl(event.target.value)}
-                        placeholder="Paste any Spotify playlist link…"
+                        value={playlistQuery}
+                        onChange={(event) => setPlaylistQuery(event.target.value)}
+                        placeholder="Search your playlists…"
                       />
-                      <button type="submit" className="small-button" disabled={urlLoading || !pastedUrl.trim()}>
-                        {urlLoading ? 'Loading…' : 'Load URL'}
-                      </button>
+                      {playlistQuery && (
+                        <button type="button" className="clear-inline-btn" onClick={() => setPlaylistQuery('')} aria-label="Clear search">
+                          <FiX />
+                        </button>
+                      )}
                     </div>
-                  </form>
 
-                  <label className="search-field playlist-search"><FiSearch aria-hidden="true" /><span className="sr-only">Search loaded playlists</span><input value={playlistQuery} onChange={(event) => setPlaylistQuery(event.target.value)} placeholder="Search your playlists" /></label>
-                  <button type="button" className="refresh-playlists" onClick={refreshPlaylists} disabled={playlistsLoading}>{playlistsLoading ? 'Refreshing playlists…' : 'Refresh playlists'}</button>
+                    <button type="button" className="refresh-playlists" onClick={refreshPlaylists} disabled={playlistsLoading}>
+                      <FiRefreshCw className={playlistsLoading ? 'spin-icon' : ''} /> {playlistsLoading ? 'Refreshing playlists…' : 'Refresh playlists'}
+                    </button>
+                  </div>
+
                   <div className="playlist-list">
                     {shownPlaylists.map((playlist) => (
                       <button
@@ -338,20 +400,47 @@ export default function App() {
                         onClick={() => choosePlaylist(playlist)}
                         aria-pressed={selectedId === playlist.id}
                       >
-                        <span className="playlist-art"><SiSpotify aria-hidden="true" /></span>
+                        <span className="playlist-art">
+                          {playlist.image ? (
+                            <img
+                              src={playlist.image}
+                              alt=""
+                              loading="lazy"
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                          ) : null}
+                          <span className="playlist-art-fallback">
+                            <SiSpotify aria-hidden="true" />
+                          </span>
+                        </span>
                         <span className="playlist-info">
-                          <strong>{playlist.name}</strong>
-                          <span>{playlist.count == null ? 'Items verified at transfer' : `${playlist.count} items`} · by {playlist.owner}</span>
+                          <span className="playlist-title-line">
+                            <strong>{playlist.name}</strong>
+                            {playlist.isOwner ? (
+                              <span className="tag-badge tag-mine">You</span>
+                            ) : (
+                              <span className="tag-badge tag-followed">Followed</span>
+                            )}
+                          </span>
+                          <span>
+                            {playlist.count == null ? 'Items verified at transfer' : `${playlist.count} tracks`} · by {playlist.owner}
+                          </span>
                         </span>
                         <span className="playlist-check">
                           {selectedId === playlist.id ? <FiCheck aria-hidden="true" /> : <FiArrowRight aria-hidden="true" />}
                         </span>
                       </button>
                     ))}
-                    {!playlistsLoading && shownPlaylists.length === 0 && <p className="list-empty">{playlistQuery ? 'No loaded playlists match this search.' : 'No playlists found in this Spotify account.'}</p>}
+                    {!playlistsLoading && shownPlaylists.length === 0 && (
+                      <p className="list-empty">{playlistQuery ? 'No playlists match your search.' : 'No playlists found in this category.'}</p>
+                    )}
                     {playlistsLoading && <p className="list-empty">Loading playlists…</p>}
                   </div>
-                  {nextOffset !== null && <button className="load-more" disabled={playlistsLoading} onClick={() => loadPlaylists(nextOffset)}>Load more playlists <FiChevronDown aria-hidden="true" /></button>}
+                  {nextOffset !== null && (
+                    <button className="load-more" disabled={playlistsLoading} onClick={() => loadPlaylists(nextOffset)}>
+                      Load more playlists <FiChevronDown aria-hidden="true" />
+                    </button>
+                  )}
                 </div>
               ) : <div className="locked-step">Connect Spotify to see your playlists.</div>}
             </div>
@@ -380,23 +469,135 @@ export default function App() {
               </div>
 
               <form className="transfer-card" onSubmit={startTransfer}>
-                <div className="transfer-card-top"><span className="eyebrow">{selectedIsEmpty ? 'EMPTY PLAYLIST' : 'READY TO COPY'}</span><SiSpotify aria-hidden="true" /></div>
-                <h3>{selected ? selected.name : 'Your playlist'}</h3>
-                <p>{selectedIsEmpty ? 'This selected playlist has 0 items. Choose a playlist with tracks.' : selected ? selected.count == null ? 'Items will be checked when you copy.' : `${selected.count} items ready to transfer` : 'Choose a playlist to see it here.'}</p>
-                {selected && <a className="source-link" href={selected.url} target="_blank" rel="noreferrer"><SiSpotify aria-hidden="true" /> View original in Spotify <FiExternalLink aria-hidden="true" /></a>}
+                <div className="transfer-card-top">
+                  <span className="eyebrow">{selectedIsEmpty ? 'EMPTY PLAYLIST' : 'READY TO COPY'}</span>
+                  <SiSpotify aria-hidden="true" />
+                </div>
+
+                {selected ? (
+                  <div className="selected-preview-card">
+                    <div className="selected-art-box">
+                      {selected.id === 'liked-songs' ? (
+                        <div className="liked-art-sq">♥</div>
+                      ) : selected.image ? (
+                        <img src={selected.image} alt={selected.name} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                      ) : null}
+                      <span className="art-sq-fallback"><SiSpotify /></span>
+                    </div>
+                    <div className="selected-text-box">
+                      <h3>{selected.name}</h3>
+                      <div className="selected-meta-tags">
+                        <span className="meta-pill">{selected.count == null ? 'Ready to transfer' : `${selected.count} tracks`}</span>
+                        <span className="meta-pill">by {selected.owner}</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="no-selection-preview">
+                    <h3>Your playlist</h3>
+                    <p>Choose a playlist to see it here.</p>
+                  </div>
+                )}
+
+                {selected && (
+                  <div className="transfer-route-box">
+                    <div className="route-step">
+                      <span className="route-sub">SOURCE</span>
+                      <strong className="route-name">{session.source?.name}</strong>
+                    </div>
+                    <div className="route-connector"><FiArrowRight /></div>
+                    <div className="route-step">
+                      <span className="route-sub">DESTINATION</span>
+                      <strong className="route-name">{useSecondAccount ? (session.destination?.name || 'Second account') : `${session.source?.name} (New)`}</strong>
+                    </div>
+                  </div>
+                )}
+
+                {selected && (
+                  <a className="source-link" href={selected.url} target="_blank" rel="noreferrer">
+                    <SiSpotify aria-hidden="true" /> View original in Spotify <FiExternalLink aria-hidden="true" />
+                  </a>
+                )}
+
                 <label className="name-label" htmlFor="new-name">New playlist name</label>
-                <input id="new-name" className="name-input" maxLength={100} required value={newName} onChange={(event) => { setNewName(event.target.value); writeSessionItem('playlist-port.name', event.target.value); }} placeholder="Select a playlist first" disabled={!selected || transferring} />
-                <button className="transfer-button" type="submit" disabled={!session.configured || !selected || selectedIsEmpty || !newName.trim() || (useSecondAccount && !session.destination) || transferring}>
-                  {transferring ? 'Copying your playlist…' : selectedIsEmpty ? 'Playlist is empty' : 'Copy playlist'}
-                  {!transferring && <FiArrowRight aria-hidden="true" />}
+                <input
+                  id="new-name"
+                  className="name-input"
+                  maxLength={100}
+                  required
+                  value={newName}
+                  onChange={(event) => { setNewName(event.target.value); writeSessionItem('playlist-port.name', event.target.value); }}
+                  placeholder="Select a playlist first"
+                  disabled={!selected || transferring}
+                />
+
+                <button
+                  className={`transfer-button ${transferring ? 'transferring' : ''}`}
+                  type="submit"
+                  disabled={!session.configured || !selected || selectedIsEmpty || !newName.trim() || (useSecondAccount && !session.destination) || transferring}
+                >
+                  {transferring ? (
+                    <>
+                      <span className="inline-spinner" />
+                      <span>Copying tracks & verifying…</span>
+                    </>
+                  ) : selectedIsEmpty ? (
+                    'Playlist is empty'
+                  ) : (
+                    <>
+                      <span>Copy playlist</span>
+                      <FiArrowRight aria-hidden="true" />
+                    </>
+                  )}
                 </button>
-                {selected && useSecondAccount && !session.destination && <p className="transfer-guidance">Connect the destination account above to enable copying.</p>}
+                {selected && useSecondAccount && !session.destination && (
+                  <p className="transfer-guidance">Connect the destination account above to enable copying.</p>
+                )}
                 <span className="transfer-footnote"><FiShield aria-hidden="true" /> Original playlist stays untouched</span>
               </form>
             </div>
           </div>
 
-          {result && <div className="success-card" role="status"><div className="success-icon"><FiCheckCircle aria-hidden="true" /></div><div><span className="eyebrow">TRANSFER COMPLETE</span><h3>{result.name} is ready.</h3><p>{result.copied} items copied{result.skipped ? ` · ${result.skipped} unavailable or local items skipped` : ''}.</p><p>To restrict link access, open the playlist and choose “Make private” in Spotify.</p></div><a href={result.url} target="_blank" rel="noreferrer">Open in Spotify <FiExternalLink aria-hidden="true" /></a></div>}
+          {result && (
+            <div className="success-card" role="status">
+              <div className="success-icon"><FiCheckCircle aria-hidden="true" /></div>
+              <div className="success-body">
+                <span className="eyebrow">TRANSFER COMPLETE</span>
+                <h3>{result.name} is ready!</h3>
+                <p>{result.copied} tracks successfully copied{result.skipped ? ` · ${result.skipped} unavailable or local items skipped` : ''}.</p>
+                <div className="success-btn-group">
+                  <a href={result.url} target="_blank" rel="noreferrer" className="success-btn-primary">
+                    <SiSpotify aria-hidden="true" /> Open in Spotify <FiExternalLink aria-hidden="true" />
+                  </a>
+                  <button
+                    type="button"
+                    className="success-btn-secondary"
+                    onClick={() => {
+                      if (navigator?.clipboard?.writeText) {
+                        navigator.clipboard.writeText(result.url);
+                        setCopiedLink(true);
+                        setTimeout(() => setCopiedLink(false), 2500);
+                      }
+                    }}
+                  >
+                    {copiedLink ? <><FiCheck /> Copied!</> : <><FiCopy /> Copy Link</>}
+                  </button>
+                  <button
+                    type="button"
+                    className="success-btn-tertiary"
+                    onClick={() => {
+                      setResult(null);
+                      setSelectedId('');
+                      removeSessionItem('playlist-port.selected');
+                      workflowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }}
+                  >
+                    <FiRefreshCw /> Transfer another
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
       </main>
 
