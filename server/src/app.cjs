@@ -123,12 +123,13 @@ app.get('/api/playlists', wrap(async (req, res) => {
   const result = await spotifyRequest(req.session.source, `/me/playlists?limit=50&offset=${offset}`);
   res.json({
     items: (result.items || [])
-      .filter((item) => item && (item.owner?.id === req.session.source.user.id || item.collaborative))
+      .filter(Boolean)
       .map((item) => ({
         id: item.id,
         name: item.name,
         count: item.items?.total ?? item.tracks?.total ?? null,
         owner: item.owner?.display_name || item.owner?.id || 'Spotify',
+        canCopy: item.owner?.id === req.session.source.user.id || item.collaborative === true,
         url: item.external_urls?.spotify || `https://open.spotify.com/playlist/${item.id}`
       })),
     nextOffset: result.next ? offset + (result.items?.length || 50) : null,
