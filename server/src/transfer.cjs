@@ -119,12 +119,15 @@ async function transferPlaylist({ playlistId, name, sourceAccount, destinationAc
   let uris = [];
   let skipped = 0;
   let playlistDescription = '';
+  let isEmbedFallback = false;
+  let originalTotal = null;
 
   if (playlistId === 'liked-songs') {
     playlistDescription = 'Transferred from Liked Songs';
     const res = await readLikedSongs(sourceAccount, request);
     uris = res.uris;
     skipped = res.skipped;
+    originalTotal = uris.length + skipped;
   } else {
     let metadata = null;
     try {
@@ -132,26 +135,21 @@ async function transferPlaylist({ playlistId, name, sourceAccount, destinationAc
     } catch {}
 
     playlistDescription = ((metadata && metadata.description) || '').replace(/<[^>]*>/g, '').slice(0, 300);
-    const isOwnedOrCollaborative = metadata && (metadata.owner?.id === sourceAccount.user.id || Boolean(metadata.collaborative));
+    originalTotal = metadata?.items?.total ?? metadata?.tracks?.total ?? null;
 
-    if (isOwnedOrCollaborative) {
-      try {
-        const res = await readItems(sourceAccount, playlistId, request);
-        uris = res.uris;
-        skipped = res.skipped;
-      } catch (err) {
-        if (err.status === 403) {
-          const pub = await readPublicPlaylistItems(playlistId);
-          uris = pub.uris;
-          skipped = pub.skipped;
-        } else {
-          throw err;
-        }
+    try {
+      const res = await readItems(sourceAccount, playlistId, request);
+      uris = res.uris;
+      skipped = res.skipped;
+    } catch (err) {
+      if (err.status === 403 || err.status === 404 || !err.status) {
+        const pub = await readPublicPlaylistItems(playlistId);
+        uris = pub.uris;
+        skipped = pub.skipped;
+        isEmbedFallback = true;
+      } else {
+        throw err;
       }
-    } else {
-      const pub = await readPublicPlaylistItems(playlistId);
-      uris = pub.uris;
-      skipped = pub.skipped;
     }
   }
 
@@ -197,7 +195,21 @@ async function transferPlaylist({ playlistId, name, sourceAccount, destinationAc
     throw error;
   }
 
-  return { name, url: link, copied, skipped, total: uris.length + skipped, verified: true };
+  const out = {
+    name,
+    url: link,
+    copied,
+    skipped,
+    total: uris.length + skipped,
+    verified: true
+  };
+
+  if (isEmbedFallback) {
+    out.isEmbedFallback = true;
+    out.originalTotal = originalTotal ?? (uris.length + skipped);
+  }
+
+  return out;
 }
 
 module.exports = { transferPlaylist };
