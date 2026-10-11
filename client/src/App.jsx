@@ -94,6 +94,14 @@ export default function App() {
     }
   }
 
+  function refreshPlaylists() {
+    setSelectedId('');
+    removeSessionItem('playlist-port.selected');
+    setResult(null);
+    setPartial(null);
+    loadPlaylists(0, true);
+  }
+
   function connect(slot) {
     window.location.assign(`/api/auth/start/${slot}`);
   }
@@ -250,6 +258,7 @@ export default function App() {
               {session.source ? (
                 <div className="playlist-panel">
                   <label className="search-field playlist-search"><FiSearch aria-hidden="true" /><span className="sr-only">Search loaded playlists</span><input value={playlistQuery} onChange={(event) => setPlaylistQuery(event.target.value)} placeholder="Search your playlists" /></label>
+                  <button type="button" className="refresh-playlists" onClick={refreshPlaylists} disabled={playlistsLoading}>{playlistsLoading ? 'Refreshing playlists…' : 'I made a copy in Spotify — refresh playlists'}</button>
                   <div className="playlist-list">
                     {shownPlaylists.map((playlist) => {
                       const rowContent = <>
@@ -301,7 +310,7 @@ export default function App() {
               <form className="transfer-card" onSubmit={startTransfer}>
                 <div className="transfer-card-top"><span className="eyebrow">{selected && !selected.canCopy ? 'MAKE A COPY FIRST' : selectedIsEmpty ? 'EMPTY PLAYLIST' : 'READY TO COPY'}</span><SiSpotify aria-hidden="true" /></div>
                 <h3>{selected ? selected.name : 'Your playlist'}</h3>
-                <p>{selected && !selected.canCopy ? 'In Spotify, choose ⋯ → Add to other playlist → Create new playlist. Refresh this page, then select your new copy.' : selectedIsEmpty ? 'Choose a playlist with tracks or episodes. An empty playlist cannot be copied.' : selected ? selected.count == null ? 'Items will be checked when you copy.' : `${selected.count} items ready to transfer` : 'Choose a playlist to see it here.'}</p>
+                <p>{selected && !selected.canCopy ? 'In Spotify, choose ⋯ → Add to other playlist → Create new playlist. Then refresh the list and select your new copy.' : selectedIsEmpty ? 'This selected playlist has 0 items. Choose the populated copy you made in Spotify.' : selected ? selected.count == null ? 'Items will be checked when you copy.' : `${selected.count} items ready to transfer` : 'Choose a playlist to see it here.'}</p>
                 {selected && <a className="source-link" href={selected.url} target="_blank" rel="noreferrer"><SiSpotify aria-hidden="true" /> View original in Spotify <FiExternalLink aria-hidden="true" /></a>}
                 <label className="name-label" htmlFor="new-name">New playlist name</label>
                 <input id="new-name" className="name-input" maxLength={100} required value={newName} onChange={(event) => { setNewName(event.target.value); writeSessionItem('playlist-port.name', event.target.value); }} placeholder="Select a playlist first" disabled={!selected || !selected.canCopy || transferring} />
