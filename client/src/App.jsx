@@ -54,6 +54,7 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [transferring, setTransferring] = useState(false);
   const workflowRef = useRef(null);
+  const actionCardRef = useRef(null);
   const transferLock = useRef(false);
 
   const selected = selectedId === 'liked-songs'
@@ -198,12 +199,18 @@ export default function App() {
     setError('');
     setPartial(null);
     setResult(null);
+    setTimeout(() => {
+      actionCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
     try {
       const completed = await api('/transfer', {
         method: 'POST',
         body: JSON.stringify({ playlistId: selected.id, name: newName.trim(), useSecondAccount })
       });
       setResult(completed);
+      setTimeout(() => {
+        actionCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 50);
     } catch (err) {
       setError(err.message);
       setPartial(err.partial || null);
@@ -446,158 +453,229 @@ export default function App() {
             </div>
 
             <div className="workflow-side">
-              <div className="destination-card">
-                <div className="step-heading"><span className="step-number">03</span><div><h3>Choose a destination</h3><p>Your copy stays off your public profile. Anyone with its link can view it until you choose “Make private” in Spotify.</p></div></div>
-                <label className={`destination-option ${!useSecondAccount ? 'active' : ''}`}>
-                  <input type="radio" name="destination" checked={!useSecondAccount} onChange={() => chooseDestination(false)} />
-                  <span className="radio-ui" />
-                  <span><strong>Same Spotify account</strong><small>Create a new playlist here</small></span>
-                </label>
-                <label className={`destination-option ${useSecondAccount ? 'active' : ''}`}>
-                  <input type="radio" name="destination" checked={useSecondAccount} onChange={() => chooseDestination(true)} />
-                  <span className="radio-ui" />
-                  <span><strong>Another Spotify account</strong><small>Connect the account receiving it</small></span>
-                </label>
-                {useSecondAccount && <Account
-                  label="DESTINATION ACCOUNT"
-                  account={session.destination}
-                  onConnect={() => connect('destination')}
-                  onDisconnect={() => disconnect('destination')}
-                  disabled={sessionLoading || !session.configured}
-                  buttonText="Connect"
-                />}
-              </div>
-
-              <form className="transfer-card" onSubmit={startTransfer}>
-                <div className="transfer-card-top">
-                  <span className="eyebrow">{selectedIsEmpty ? 'EMPTY PLAYLIST' : 'READY TO COPY'}</span>
-                  <SiSpotify aria-hidden="true" />
+              {!result && (
+                <div className="destination-card">
+                  <div className="step-heading"><span className="step-number">03</span><div><h3>Choose a destination</h3><p>Your copy stays off your public profile. Anyone with its link can view it until you choose “Make private” in Spotify.</p></div></div>
+                  <label className={`destination-option ${!useSecondAccount ? 'active' : ''}`}>
+                    <input type="radio" name="destination" checked={!useSecondAccount} onChange={() => chooseDestination(false)} disabled={transferring} />
+                    <span className="radio-ui" />
+                    <span><strong>Same Spotify account</strong><small>Create a new playlist here</small></span>
+                  </label>
+                  <label className={`destination-option ${useSecondAccount ? 'active' : ''}`}>
+                    <input type="radio" name="destination" checked={useSecondAccount} onChange={() => chooseDestination(true)} disabled={transferring} />
+                    <span className="radio-ui" />
+                    <span><strong>Another Spotify account</strong><small>Connect the account receiving it</small></span>
+                  </label>
+                  {useSecondAccount && <Account
+                    label="DESTINATION ACCOUNT"
+                    account={session.destination}
+                    onConnect={() => connect('destination')}
+                    onDisconnect={() => disconnect('destination')}
+                    disabled={sessionLoading || !session.configured || transferring}
+                    buttonText="Connect"
+                  />}
                 </div>
+              )}
 
-                {selected ? (
-                  <div className="selected-preview-card">
-                    <div className="selected-art-box">
-                      {selected.id === 'liked-songs' ? (
-                        <div className="liked-art-sq">♥</div>
-                      ) : selected.image ? (
-                        <img src={selected.image} alt={selected.name} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                      ) : null}
-                      <span className="art-sq-fallback"><SiSpotify /></span>
+              {result ? (
+                <div className="transfer-card transfer-success-hero" ref={actionCardRef} role="status" aria-live="polite">
+                  <div className="success-hero-header">
+                    <div className="success-hero-icon-ring">
+                      <FiCheck aria-hidden="true" />
                     </div>
-                    <div className="selected-text-box">
-                      <h3>{selected.name}</h3>
-                      <div className="selected-meta-tags">
-                        <span className="meta-pill">{selected.count == null ? 'Ready to transfer' : `${selected.count} tracks`}</span>
-                        <span className="meta-pill">by {selected.owner}</span>
+                    <div className="success-hero-titles">
+                      <span className="eyebrow success-eyebrow">✓ TRANSFER COMPLETE</span>
+                      <h3 className="success-hero-name">{result.name}</h3>
+                    </div>
+                  </div>
+
+                  <div className="success-stat-card">
+                    <div className="stat-row">
+                      <span className="stat-label">Tracks copied</span>
+                      <strong className="stat-value">{result.copied} tracks</strong>
+                    </div>
+                    <div className="stat-row">
+                      <span className="stat-label">Destination</span>
+                      <span className="stat-dest">{useSecondAccount ? (session.destination?.name || 'Second account') : `${session.source?.name || 'Your account'}`}</span>
+                    </div>
+                    {Boolean(result.skipped) && (
+                      <div className="stat-row stat-skipped">
+                        <span className="stat-label">Skipped</span>
+                        <span>{result.skipped} unavailable or local items</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {result.isEmbedFallback && result.copied < result.originalTotal && (
+                    <div className="embed-preview-alert">
+                      <FiInfo aria-hidden="true" />
+                      <div>
+                        <strong>100 of {result.originalTotal} tracks copied</strong>
+                        <p>Spotify limits public web preview extractions to 100 tracks for followed playlists without owner API write access.</p>
                       </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="no-selection-preview">
-                    <h3>Your playlist</h3>
-                    <p>Choose a playlist to see it here.</p>
-                  </div>
-                )}
-
-                {selected && (
-                  <div className="transfer-route-box">
-                    <div className="route-step">
-                      <span className="route-sub">SOURCE</span>
-                      <strong className="route-name">{session.source?.name}</strong>
-                    </div>
-                    <div className="route-connector"><FiArrowRight /></div>
-                    <div className="route-step">
-                      <span className="route-sub">DESTINATION</span>
-                      <strong className="route-name">{useSecondAccount ? (session.destination?.name || 'Second account') : `${session.source?.name} (New)`}</strong>
-                    </div>
-                  </div>
-                )}
-
-                {selected && (
-                  <a className="source-link" href={selected.url} target="_blank" rel="noreferrer">
-                    <SiSpotify aria-hidden="true" /> View original in Spotify <FiExternalLink aria-hidden="true" />
-                  </a>
-                )}
-
-                <label className="name-label" htmlFor="new-name">New playlist name</label>
-                <input
-                  id="new-name"
-                  className="name-input"
-                  maxLength={100}
-                  required
-                  value={newName}
-                  onChange={(event) => { setNewName(event.target.value); writeSessionItem('playlist-port.name', event.target.value); }}
-                  placeholder="Select a playlist first"
-                  disabled={!selected || transferring}
-                />
-
-                <button
-                  className={`transfer-button ${transferring ? 'transferring' : ''}`}
-                  type="submit"
-                  disabled={!session.configured || !selected || selectedIsEmpty || !newName.trim() || (useSecondAccount && !session.destination) || transferring}
-                >
-                  {transferring ? (
-                    <>
-                      <span className="inline-spinner" />
-                      <span>Copying tracks & verifying…</span>
-                    </>
-                  ) : selectedIsEmpty ? (
-                    'Playlist is empty'
-                  ) : (
-                    <>
-                      <span>Copy playlist</span>
-                      <FiArrowRight aria-hidden="true" />
-                    </>
                   )}
-                </button>
-                {selected && useSecondAccount && !session.destination && (
-                  <p className="transfer-guidance">Connect the destination account above to enable copying.</p>
-                )}
-                <span className="transfer-footnote"><FiShield aria-hidden="true" /> Original playlist stays untouched</span>
-              </form>
+
+                  <div className="success-hero-actions">
+                    <a href={result.url} target="_blank" rel="noreferrer" className="hero-btn-spotify">
+                      <SiSpotify aria-hidden="true" />
+                      <span>Open in Spotify</span>
+                      <FiExternalLink aria-hidden="true" />
+                    </a>
+                    <button
+                      type="button"
+                      className="hero-btn-copy"
+                      onClick={() => {
+                        if (navigator?.clipboard?.writeText) {
+                          navigator.clipboard.writeText(result.url);
+                          setCopiedLink(true);
+                          setTimeout(() => setCopiedLink(false), 2500);
+                        }
+                      }}
+                    >
+                      {copiedLink ? <><FiCheck aria-hidden="true" /> Copied!</> : <><FiCopy aria-hidden="true" /> Copy link</>}
+                    </button>
+                    <button
+                      type="button"
+                      className="hero-btn-reset"
+                      onClick={() => {
+                        setResult(null);
+                        setSelectedId('');
+                        removeSessionItem('playlist-port.selected');
+                        workflowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }}
+                    >
+                      <FiRefreshCw aria-hidden="true" /> Transfer another playlist
+                    </button>
+                  </div>
+                </div>
+              ) : transferring ? (
+                <div className="transfer-card transfer-active-card" ref={actionCardRef} role="status" aria-live="polite">
+                  <div className="transfer-card-top">
+                    <span className="eyebrow active-eyebrow">TRANSFER IN PROGRESS</span>
+                    <span className="live-pulse-badge">
+                      <span className="pulse-dot" /> LIVE
+                    </span>
+                  </div>
+
+                  <div className="active-transfer-hero">
+                    <div className="active-spinner-ring">
+                      <div className="ring-spin" />
+                      <SiSpotify className="ring-spotify-icon" />
+                    </div>
+                    <h3>Copying “{selected?.name}”</h3>
+                    <p>Please keep this page open. Spotify is transferring and indexing your tracks.</p>
+                  </div>
+
+                  <div className="progress-bar-container">
+                    <div className="progress-bar-indeterminate" />
+                  </div>
+
+                  <div className="transfer-stages-tracker">
+                    <div className="stage-item done">
+                      <span className="stage-icon"><FiCheck /></span>
+                      <span>Connected to Spotify</span>
+                    </div>
+                    <div className="stage-item current">
+                      <span className="stage-icon spin-icon"><FiRefreshCw /></span>
+                      <span>Creating playlist & copying tracks</span>
+                    </div>
+                    <div className="stage-item pending">
+                      <span className="stage-icon">3</span>
+                      <span>Verifying copied items</span>
+                    </div>
+                  </div>
+
+                  <span className="transfer-footnote">
+                    <FiShield aria-hidden="true" /> Your source playlist is never modified
+                  </span>
+                </div>
+              ) : (
+                <form className="transfer-card" ref={actionCardRef} onSubmit={startTransfer}>
+                  <div className="transfer-card-top">
+                    <span className="eyebrow">{selectedIsEmpty ? 'EMPTY PLAYLIST' : 'READY TO COPY'}</span>
+                    <SiSpotify aria-hidden="true" />
+                  </div>
+
+                  {selected ? (
+                    <div className="selected-preview-card">
+                      <div className="selected-art-box">
+                        {selected.id === 'liked-songs' ? (
+                          <div className="liked-art-sq">♥</div>
+                        ) : selected.image ? (
+                          <img src={selected.image} alt={selected.name} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                        ) : null}
+                        <span className="art-sq-fallback"><SiSpotify /></span>
+                      </div>
+                      <div className="selected-text-box">
+                        <h3>{selected.name}</h3>
+                        <div className="selected-meta-tags">
+                          <span className="meta-pill">{selected.count == null ? 'Ready to transfer' : `${selected.count} tracks`}</span>
+                          <span className="meta-pill">by {selected.owner}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="no-selection-preview">
+                      <h3>Your playlist</h3>
+                      <p>Choose a playlist to see it here.</p>
+                    </div>
+                  )}
+
+                  {selected && (
+                    <div className="transfer-route-box">
+                      <div className="route-step">
+                        <span className="route-sub">SOURCE</span>
+                        <strong className="route-name">{session.source?.name}</strong>
+                      </div>
+                      <div className="route-connector"><FiArrowRight /></div>
+                      <div className="route-step">
+                        <span className="route-sub">DESTINATION</span>
+                        <strong className="route-name">{useSecondAccount ? (session.destination?.name || 'Second account') : `${session.source?.name} (New)`}</strong>
+                      </div>
+                    </div>
+                  )}
+
+                  {selected && (
+                    <a className="source-link" href={selected.url} target="_blank" rel="noreferrer">
+                      <SiSpotify aria-hidden="true" /> View original in Spotify <FiExternalLink aria-hidden="true" />
+                    </a>
+                  )}
+
+                  <label className="name-label" htmlFor="new-name">New playlist name</label>
+                  <input
+                    id="new-name"
+                    className="name-input"
+                    maxLength={100}
+                    required
+                    value={newName}
+                    onChange={(event) => { setNewName(event.target.value); writeSessionItem('playlist-port.name', event.target.value); }}
+                    placeholder="Select a playlist first"
+                    disabled={!selected || transferring}
+                  />
+
+                  <button
+                    className="transfer-button"
+                    type="submit"
+                    disabled={!session.configured || !selected || selectedIsEmpty || !newName.trim() || (useSecondAccount && !session.destination) || transferring}
+                  >
+                    {selectedIsEmpty ? (
+                      'Playlist is empty'
+                    ) : (
+                      <>
+                        <span>Copy playlist</span>
+                        <FiArrowRight aria-hidden="true" />
+                      </>
+                    )}
+                  </button>
+                  {selected && useSecondAccount && !session.destination && (
+                    <p className="transfer-guidance">Connect the destination account above to enable copying.</p>
+                  )}
+                  <span className="transfer-footnote"><FiShield aria-hidden="true" /> Original playlist stays untouched</span>
+                </form>
+              )}
             </div>
           </div>
-
-          {result && (
-            <div className="success-card" role="status">
-              <div className="success-icon"><FiCheckCircle aria-hidden="true" /></div>
-              <div className="success-body">
-                <span className="eyebrow">TRANSFER COMPLETE</span>
-                <h3>{result.name} is ready!</h3>
-                <p>{result.copied} tracks successfully copied{result.skipped ? ` · ${result.skipped} unavailable or local items skipped` : ''}.</p>
-                <div className="success-btn-group">
-                  <a href={result.url} target="_blank" rel="noreferrer" className="success-btn-primary">
-                    <SiSpotify aria-hidden="true" /> Open in Spotify <FiExternalLink aria-hidden="true" />
-                  </a>
-                  <button
-                    type="button"
-                    className="success-btn-secondary"
-                    onClick={() => {
-                      if (navigator?.clipboard?.writeText) {
-                        navigator.clipboard.writeText(result.url);
-                        setCopiedLink(true);
-                        setTimeout(() => setCopiedLink(false), 2500);
-                      }
-                    }}
-                  >
-                    {copiedLink ? <><FiCheck /> Copied!</> : <><FiCopy /> Copy Link</>}
-                  </button>
-                  <button
-                    type="button"
-                    className="success-btn-tertiary"
-                    onClick={() => {
-                      setResult(null);
-                      setSelectedId('');
-                      removeSessionItem('playlist-port.selected');
-                      workflowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }}
-                  >
-                    <FiRefreshCw /> Transfer another
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </section>
       </main>
 
