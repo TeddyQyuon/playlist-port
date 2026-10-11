@@ -1,6 +1,6 @@
 const { SpotifyError, spotifyRequest } = require('./spotify.cjs');
 
-const VALID_ID = /^[A-Za-z0-9]{1,64}$/;
+const VALID_ID = /^[A-Za-z0-9_-]{1,64}$/;
 const VALID_URI = /^spotify:(track|episode):[A-Za-z0-9]+$/;
 
 async function readItems(account, playlistId, request) {
@@ -28,23 +28,138 @@ async function readItems(account, playlistId, request) {
   throw new SpotifyError('This playlist is too large to copy in one transfer.');
 }
 
+async function readLikedSongs(account, request) {
+  const uris = [];
+  let skipped = 0;
+  let offset = 0;
+  for (let page = 0; page < 2000; page += 1) {
+    let result;
+    try {
+      result = await request(account, `/me/tracks?limit=50&offset=${offset}`);
+    } catch (err) {
+      if (err.status === 403) {
+        throw new SpotifyError('Please disconnect and reconnect Spotify to grant access to your Liked Songs.', 403);
+      }
+      throw err;
+    }
+    if (!Array.isArray(result.items)) throw new SpotifyError('Spotify returned an unexpected response for Liked Songs.');
+    for (const entry of result.items) {
+      const track = entry?.track;
+      const uri = track?.linked_from?.uri || track?.uri;
+      if (!entry?.is_local && !track?.is_local && VALID_URI.test(uri || '')) {
+        uris.push(uri);
+      } else {
+        skipped += 1;
+      }
+    }
+    offset += result.items.length;
+    if (!result.next) return { uris, skipped };
+    if (result.items.length === 0) throw new SpotifyError('Incomplete Liked Songs page. Please try again.');
+  }
+  return { uris, skipped };
+}
+
+async function readPublicPlaylistItems(playlistId) {
+  let res;
+  try {
+    res = await fetch(`https://open.spotify.com/embed/playlist/${playlistId}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      signal: AbortSignal.timeout(15000)
+    });
+  } catch {
+    throw new SpotifyError('Could not reach Spotify to load this public playlist.');
+  }
+
+  if (!res.ok) {
+    throw new SpotifyError('Could not retrieve tracks from this playlist. Ensure the playlist is public.', 404);
+  }
+
+  const html = await res.text();
+  const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+  const uris = [];
+  let skipped = 0;
+
+  if (m) {
+    try {
+      const d = JSON.parse(m[1]);
+      const trackList = d.props?.pageProps?.state?.data?.entity?.trackList;
+      if (Array.isArray(trackList)) {
+        for (const track of trackList) {
+          if (track && track.uri && VALID_URI.test(track.uri) && !track.is_local) {
+            uris.push(track.uri);
+          } else {
+            skipped += 1;
+          }
+        }
+      }
+    } catch {}
+  }
+
+  if (uris.length === 0) {
+    const matches = html.match(/spotify:(?:track|episode):[a-zA-Z0-9]+/g) || [];
+    const seen = new Set();
+    for (const uri of matches) {
+      if (!seen.has(uri) && VALID_URI.test(uri)) {
+        seen.add(uri);
+        uris.push(uri);
+      }
+    }
+  }
+
+  return { uris, skipped };
+}
+
 async function transferPlaylist({ playlistId, name, sourceAccount, destinationAccount, request = spotifyRequest }) {
   if (typeof playlistId !== 'string' || !VALID_ID.test(playlistId) || typeof name !== 'string' || !name.trim() || name.length > 100) {
     throw new SpotifyError('Choose a playlist and enter a name of at most 100 characters.', 400);
   }
 
-  const metadata = await request(sourceAccount, `/playlists/${playlistId}`);
-  if (metadata.owner?.id !== sourceAccount.user.id && !metadata.collaborative) {
-    throw new SpotifyError('Spotify only lets this app read playlists you own or collaborate on.', 403);
-  }
+  let uris = [];
+  let skipped = 0;
+  let playlistDescription = '';
 
-  const { uris, skipped } = await readItems(sourceAccount, playlistId, request);
+  if (playlistId === 'liked-songs') {
+    playlistDescription = 'Transferred from Liked Songs';
+    const res = await readLikedSongs(sourceAccount, request);
+    uris = res.uris;
+    skipped = res.skipped;
+  } else {
+    let metadata = null;
+    try {
+      metadata = await request(sourceAccount, `/playlists/${playlistId}`);
+    } catch {}
+
+    playlistDescription = ((metadata && metadata.description) || '').replace(/<[^>]*>/g, '').slice(0, 300);
+    const isOwnedOrCollaborative = metadata && (metadata.owner?.id === sourceAccount.user.id || Boolean(metadata.collaborative));
+
+    if (isOwnedOrCollaborative) {
+      try {
+        const res = await readItems(sourceAccount, playlistId, request);
+        uris = res.uris;
+        skipped = res.skipped;
+      } catch (err) {
+        if (err.status === 403) {
+          const pub = await readPublicPlaylistItems(playlistId);
+          uris = pub.uris;
+          skipped = pub.skipped;
+        } else {
+          throw err;
+        }
+      }
+    } else {
+      const pub = await readPublicPlaylistItems(playlistId);
+      uris = pub.uris;
+      skipped = pub.skipped;
+    }
+  }
 
   if (uris.length === 0) {
     throw new SpotifyError(
       skipped
         ? 'This playlist has no transferable tracks or episodes. Its items are local or unavailable. No copy was created.'
-        : 'This playlist is empty. Choose the original playlist with tracks or episodes. No copy was created.',
+        : 'This playlist is empty. Choose a playlist with tracks or episodes. No copy was created.',
       422
     );
   }
@@ -54,7 +169,7 @@ async function transferPlaylist({ playlistId, name, sourceAccount, destinationAc
     body: {
       name,
       public: false,
-      description: (metadata.description || '').replace(/<[^>]*>/g, '').slice(0, 300)
+      description: playlistDescription
     }
   });
   if (!newPlaylist.id) throw new SpotifyError('Spotify did not return a new playlist ID.');

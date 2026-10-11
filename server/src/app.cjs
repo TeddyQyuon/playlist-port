@@ -65,7 +65,7 @@ app.get('/api/auth/start/:slot', (req, res, next) => {
     response_type: 'code',
     redirect_uri: process.env.SPOTIFY_REDIRECT_URI,
     state,
-    scope: 'playlist-read-private playlist-read-collaborative playlist-modify-private user-read-private',
+    scope: 'playlist-read-private playlist-read-collaborative playlist-modify-private user-read-private user-library-read',
     show_dialog: 'true'
   }).toString();
 
@@ -129,12 +129,80 @@ app.get('/api/playlists', wrap(async (req, res) => {
         name: item.name,
         count: item.items?.total ?? item.tracks?.total ?? null,
         owner: item.owner?.display_name || item.owner?.id || 'Spotify',
-        canCopy: item.owner?.id === req.session.source.user.id || item.collaborative === true,
+        canCopy: true,
         url: item.external_urls?.spotify || `https://open.spotify.com/playlist/${item.id}`
       })),
     nextOffset: result.next ? offset + (result.items?.length || 50) : null,
     total: result.total || 0
   });
+}));
+
+async function fetchPublicPlaylistMetadata(id) {
+  try {
+    const res = await fetch(`https://open.spotify.com/embed/playlist/${id}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+    if (m) {
+      const d = JSON.parse(m[1]);
+      const entity = d.props?.pageProps?.state?.data?.entity;
+      if (entity) {
+        return {
+          id,
+          name: entity.name || entity.title || 'Public Playlist',
+          count: entity.trackList?.length ?? null,
+          owner: entity.subtitle || 'Spotify',
+          canCopy: true,
+          url: `https://open.spotify.com/playlist/${id}`
+        };
+      }
+    }
+  } catch {}
+  return null;
+}
+
+app.get('/api/playlist/:id', wrap(async (req, res) => {
+  if (!req.session.source) throw new SpotifyError('Connect a source Spotify account first.', 401);
+  const id = req.params.id;
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) {
+    throw new SpotifyError('Invalid playlist ID or link.', 400);
+  }
+  if (id === 'liked-songs') {
+    let count = null;
+    try {
+      const tracks = await spotifyRequest(req.session.source, '/me/tracks?limit=1');
+      count = tracks.total ?? null;
+    } catch {}
+    return res.json({
+      id: 'liked-songs',
+      name: 'Liked Songs',
+      count,
+      owner: req.session.source.user.name,
+      canCopy: true,
+      url: 'https://open.spotify.com/collection/tracks'
+    });
+  }
+
+  try {
+    const item = await spotifyRequest(req.session.source, `/playlists/${id}`);
+    return res.json({
+      id: item.id,
+      name: item.name,
+      count: item.items?.total ?? item.tracks?.total ?? null,
+      owner: item.owner?.display_name || item.owner?.id || 'Spotify',
+      canCopy: true,
+      url: item.external_urls?.spotify || `https://open.spotify.com/playlist/${item.id}`
+    });
+  } catch (err) {
+    const pub = await fetchPublicPlaylistMetadata(id);
+    if (pub) return res.json(pub);
+    throw err;
+  }
 }));
 
 app.post('/api/transfer', wrap(async (req, res) => {
