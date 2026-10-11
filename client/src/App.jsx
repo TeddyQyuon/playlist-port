@@ -246,18 +246,27 @@ export default function App() {
                 disabled={sessionLoading || !session.configured}
               />
 
-              <div className="step-heading second-step"><span className="step-number">02</span><div><h3>Choose a playlist</h3><p>Your Spotify library appears here. Playlists you don’t own or collaborate on are view-only because Spotify restricts access to their tracks.</p></div></div>
+              <div className="step-heading second-step"><span className="step-number">02</span><div><h3>Choose a playlist</h3><p>To move a playlist you follow, first make a copy in Spotify: open it and choose ⋯ → Add to other playlist → Create new playlist. Then refresh here.</p></div></div>
               {session.source ? (
                 <div className="playlist-panel">
                   <label className="search-field playlist-search"><FiSearch aria-hidden="true" /><span className="sr-only">Search loaded playlists</span><input value={playlistQuery} onChange={(event) => setPlaylistQuery(event.target.value)} placeholder="Search your playlists" /></label>
                   <div className="playlist-list">
-                    {shownPlaylists.map((playlist) => (
-                      <button key={playlist.id} className={`playlist-row ${selectedId === playlist.id ? 'selected' : ''} ${playlist.canCopy ? '' : 'unavailable'}`} onClick={() => choosePlaylist(playlist)} disabled={!playlist.canCopy} aria-pressed={selectedId === playlist.id}>
+                    {shownPlaylists.map((playlist) => {
+                      const rowContent = <>
                         <span className="playlist-art"><SiSpotify aria-hidden="true" /></span>
-                        <span className="playlist-info"><strong>{playlist.name}</strong><span>{playlist.count == null ? 'Item count unavailable' : `${playlist.count} items`} · by {playlist.owner}</span>{!playlist.canCopy && <small className="playlist-restriction">View only · you aren’t the owner or a collaborator</small>}</span>
-                        <span className="playlist-check">{playlist.canCopy ? selectedId === playlist.id ? <FiCheck aria-hidden="true" /> : <FiArrowRight aria-hidden="true" /> : <FiInfo aria-label="View only" />}</span>
-                      </button>
-                    ))}
+                        <span className="playlist-info"><strong>{playlist.name}</strong><span>{playlist.count == null ? 'Item count unavailable' : `${playlist.count} items`} · by {playlist.owner}</span>{!playlist.canCopy && <small className="playlist-next-step">Open in Spotify · make your own copy</small>}</span>
+                        <span className="playlist-check">{playlist.canCopy ? selectedId === playlist.id ? <FiCheck aria-hidden="true" /> : <FiArrowRight aria-hidden="true" /> : <FiExternalLink aria-hidden="true" />}</span>
+                      </>;
+                      return playlist.canCopy ? (
+                        <button key={playlist.id} className={`playlist-row ${selectedId === playlist.id ? 'selected' : ''}`} onClick={() => choosePlaylist(playlist)} aria-pressed={selectedId === playlist.id}>
+                          {rowContent}
+                        </button>
+                      ) : (
+                        <a key={playlist.id} className="playlist-row unavailable" href={playlist.url} target="_blank" rel="noreferrer" aria-label={`Open ${playlist.name} in Spotify to make a copy`}>
+                          {rowContent}
+                        </a>
+                      );
+                    })}
                     {!playlistsLoading && shownPlaylists.length === 0 && <p className="list-empty">{playlistQuery ? 'No loaded playlists match this search.' : 'No playlists found in this Spotify account.'}</p>}
                     {playlistsLoading && <p className="list-empty">Loading playlists…</p>}
                   </div>
@@ -290,14 +299,14 @@ export default function App() {
               </div>
 
               <form className="transfer-card" onSubmit={startTransfer}>
-                <div className="transfer-card-top"><span className="eyebrow">{selected && !selected.canCopy ? 'COPY UNAVAILABLE' : selectedIsEmpty ? 'EMPTY PLAYLIST' : 'READY TO COPY'}</span><SiSpotify aria-hidden="true" /></div>
+                <div className="transfer-card-top"><span className="eyebrow">{selected && !selected.canCopy ? 'MAKE A COPY FIRST' : selectedIsEmpty ? 'EMPTY PLAYLIST' : 'READY TO COPY'}</span><SiSpotify aria-hidden="true" /></div>
                 <h3>{selected ? selected.name : 'Your playlist'}</h3>
-                <p>{selected && !selected.canCopy ? 'Spotify only lets this app read tracks from playlists you own or collaborate on.' : selectedIsEmpty ? 'Choose a playlist with tracks or episodes. An empty playlist cannot be copied.' : selected ? selected.count == null ? 'Items will be checked when you copy.' : `${selected.count} items ready to transfer` : 'Choose a playlist to see it here.'}</p>
+                <p>{selected && !selected.canCopy ? 'In Spotify, choose ⋯ → Add to other playlist → Create new playlist. Refresh this page, then select your new copy.' : selectedIsEmpty ? 'Choose a playlist with tracks or episodes. An empty playlist cannot be copied.' : selected ? selected.count == null ? 'Items will be checked when you copy.' : `${selected.count} items ready to transfer` : 'Choose a playlist to see it here.'}</p>
                 {selected && <a className="source-link" href={selected.url} target="_blank" rel="noreferrer"><SiSpotify aria-hidden="true" /> View original in Spotify <FiExternalLink aria-hidden="true" /></a>}
                 <label className="name-label" htmlFor="new-name">New playlist name</label>
                 <input id="new-name" className="name-input" maxLength={100} required value={newName} onChange={(event) => { setNewName(event.target.value); writeSessionItem('playlist-port.name', event.target.value); }} placeholder="Select a playlist first" disabled={!selected || !selected.canCopy || transferring} />
                 <button className="transfer-button" type="submit" disabled={!session.configured || !selected || !selected.canCopy || selectedIsEmpty || !newName.trim() || (useSecondAccount && !session.destination) || transferring}>
-                  {transferring ? 'Copying your playlist…' : selected && !selected.canCopy ? 'Can’t copy this playlist' : selectedIsEmpty ? 'Playlist is empty' : 'Copy playlist'}
+                  {transferring ? 'Copying your playlist…' : selected && !selected.canCopy ? 'Make a copy in Spotify first' : selectedIsEmpty ? 'Playlist is empty' : 'Copy playlist'}
                   {!transferring && <FiArrowRight aria-hidden="true" />}
                 </button>
                 {selected && useSecondAccount && !session.destination && <p className="transfer-guidance">Connect the destination account above to enable copying.</p>}
