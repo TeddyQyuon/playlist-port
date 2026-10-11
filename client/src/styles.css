@@ -175,3 +175,46 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #b8ff
 .url-search input{font-size:13px}
 .url-search button{padding:6px 12px;font-size:12px;height:34px;margin-right:4px}
 
+.playlist-panel-header{display:flex;flex-direction:column;gap:4px}
+.filter-row{padding:4px 12px 2px}
+.playlist-tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.tab-btn{background:#202a43;border:1px solid #37415d;color:#9ca7be;border-radius:20px;padding:6px 13px;font-size:12px;font-weight:700;white-space:nowrap;cursor:pointer;transition:all .18s}
+.tab-btn:hover{background:#293554;color:#d8e0f0;border-color:#4a577a}
+.tab-btn.active{background:#b8ffcf;color:#103423;border-color:#b8ffcf;box-shadow:0 2px 10px rgba(184,255,207,.2)}
+.clear-inline-btn{background:none;border:0;color:#949fb5;cursor:pointer;padding:4px 8px;display:grid;place-items:center;font-size:14px}
+.clear-inline-btn:hover{color:#fff}
+.playlist-art{position:relative;overflow:hidden;background:#153d30}
+.playlist-art img{width:100%;height:100%;object-fit:cover;border-radius:8px;position:absolute;inset:0}
+.playlist-art-fallback{width:100%;height:100%;display:grid;place-items:center}
+.playlist-title-line{display:flex;align-items:center;gap:7px;overflow:hidden}
+.tag-badge{font-size:10px;font-weight:800;letter-spacing:.03em;padding:2px 7px;border-radius:6px;flex:none;text-transform:uppercase}
+.tag-mine{background:#1e3c32;color:#94f3b7;border:1px solid #387158}
+.tag-followed{background:#28324a;color:#abb6ce;border:1px solid #3d4a6b}
+.selected-preview-card{display:flex;align-items:center;gap:14px;background:#163628;border:1px solid #336e52;border-radius:14px;padding:12px;margin:12px 0 14px}
+.selected-art-box{width:56px;height:56px;border-radius:10px;overflow:hidden;position:relative;background:#133325;flex:none}
+.selected-art-box img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.art-sq-fallback{width:100%;height:100%;display:grid;place-items:center;color:#b8ffcf;font-size:26px}
+.liked-art-sq{width:100%;height:100%;display:grid;place-items:center;background:linear-gradient(135deg,#450af5,#82f3c0);color:#fff;font-size:24px;font-weight:900}
+.selected-text-box{min-width:0;flex:1}
+.selected-text-box h3{font-size:18px!important;margin:0 0 4px!important;color:#ecfff2!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.selected-meta-tags{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.meta-pill{font-size:11px;color:#8ccbb0;background:#102c21;padding:2px 8px;border-radius:6px}
+.transfer-route-box{display:flex;align-items:center;justify-content:space-between;background:#e2fae9;border:1px solid #9ddbb7;border-radius:10px;padding:10px 14px;margin-bottom:14px}
+.route-step{display:flex;flex-direction:column;gap:1px}
+.route-sub{font-size:9px;font-weight:800;letter-spacing:.08em;color:#45775c}
+.route-name{font-size:13px;color:#183d2a;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.route-connector{color:#3a7959;font-size:16px;display:grid;place-items:center}
+.inline-spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;flex:none}
+.spin-icon{animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.transfer-button.transferring{background:#23573c;cursor:wait}
+.success-body{flex:1;min-width:0}
+.success-btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.success-btn-primary{background:#b8ffcf;color:#123527;border-radius:8px;padding:9px 14px;font-size:12px;font-weight:800;text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:background .2s}
+.success-btn-primary:hover{background:#d2ffe2}
+.success-btn-secondary{background:#2d4e43;color:#c9f8dc;border:1px solid #4f806d;border-radius:8px;padding:9px 13px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;transition:background .2s}
+.success-btn-secondary:hover{background:#385e52}
+.success-btn-tertiary{background:transparent;color:#a8cabb;border:1px solid transparent;border-radius:8px;padding:9px 11px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.success-btn-tertiary:hover{color:#e0fff0;text-decoration:underline}
+
+
