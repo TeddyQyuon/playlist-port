@@ -8,7 +8,16 @@ async function readItems(account, playlistId, request) {
   let skipped = 0;
   let offset = 0;
   for (let page = 0; page < 2000; page += 1) {
-    const result = await request(account, `/playlists/${playlistId}/items?limit=50&offset=${offset}&additional_types=episode`);
+    let result;
+    try {
+      result = await request(account, `/playlists/${playlistId}/items?limit=50&offset=${offset}&additional_types=episode`);
+    } catch (err) {
+      if (err.status === 404 || err.status === 400) {
+        result = await request(account, `/playlists/${playlistId}/tracks?limit=50&offset=${offset}&additional_types=episode`);
+      } else {
+        throw err;
+      }
+    }
     if (!Array.isArray(result.items)) throw new SpotifyError('Spotify returned an unexpected playlist response.');
     for (const entry of result.items) {
       const item = entry && Object.hasOwn(entry, 'item') ? entry.item : entry?.track;

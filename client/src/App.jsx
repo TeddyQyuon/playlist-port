@@ -73,6 +73,7 @@ export default function App() {
   const shownPlaylists = filteredByTab.filter((playlist) =>
     playlist.name.toLowerCase().includes(playlistQuery.toLowerCase())
   );
+  const isPastedSpotifyUrl = /(?:playlist\/|playlist:)([a-zA-Z0-9]{1,64})/.test(playlistQuery.trim());
   const currentStep = result ? 4 : !session.source ? 1 : !selected ? 2 : 3;
   function openWorkflow() {
     workflowRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
@@ -160,8 +161,8 @@ export default function App() {
   }
 
   async function loadPastedPlaylist(event) {
-    event.preventDefault();
-    const trimmed = pastedUrl.trim();
+    if (event && event.preventDefault) event.preventDefault();
+    const trimmed = (playlistQuery || pastedUrl).trim();
     if (!trimmed) return;
     const match = trimmed.match(/(?:playlist\/|playlist:)([a-zA-Z0-9]{1,64})/);
     if (!match) {
@@ -178,6 +179,7 @@ export default function App() {
         return [data, ...current];
       });
       choosePlaylist(data);
+      setPlaylistQuery('');
       setPastedUrl('');
     } catch (err) {
       setError(err.message || 'Could not load playlist from that URL.');
@@ -318,44 +320,12 @@ export default function App() {
               {session.source ? (
                 <div className="playlist-panel">
                   <div className="playlist-panel-header">
-                    <button
-                      type="button"
-                      className={`liked-songs-btn ${selectedId === 'liked-songs' ? 'selected' : ''}`}
-                      onClick={selectLikedSongs}
-                    >
-                      <span className="liked-art">♥</span>
-                      <div className="liked-info">
-                        <strong>Liked Songs</strong>
-                        <span>Transfer your saved tracks to a new playlist</span>
-                      </div>
-                      <span className="liked-badge">
-                        {selectedId === 'liked-songs' ? <FiCheck aria-hidden="true" /> : <FiArrowRight aria-hidden="true" />}
-                      </span>
-                    </button>
-
-                    <form onSubmit={loadPastedPlaylist} className="url-search-form">
-                      <div className="search-field url-search">
-                        <FiLink2 aria-hidden="true" />
-                        <input
-                          value={pastedUrl}
-                          onChange={(event) => setPastedUrl(event.target.value)}
-                          placeholder="Paste any Spotify playlist link…"
-                        />
-                        {pastedUrl && (
-                          <button type="button" className="clear-inline-btn" onClick={() => setPastedUrl('')} aria-label="Clear URL">
-                            <FiX />
-                          </button>
-                        )}
-                        <button type="submit" className="small-button" disabled={urlLoading || !pastedUrl.trim()}>
-                          {urlLoading ? 'Loading…' : 'Load URL'}
-                        </button>
-                      </div>
-                    </form>
-
                     <div className="filter-row">
-                      <div className="playlist-tabs">
+                      <div className="playlist-tabs" role="tablist" aria-label="Playlist categories">
                         <button
                           type="button"
+                          role="tab"
+                          aria-selected={activeTab === 'all'}
                           className={`tab-btn ${activeTab === 'all' ? 'active' : ''}`}
                           onClick={() => setActiveTab('all')}
                         >
@@ -363,6 +333,8 @@ export default function App() {
                         </button>
                         <button
                           type="button"
+                          role="tab"
+                          aria-selected={activeTab === 'mine'}
                           className={`tab-btn ${activeTab === 'mine' ? 'active' : ''}`}
                           onClick={() => setActiveTab('mine')}
                         >
@@ -370,78 +342,138 @@ export default function App() {
                         </button>
                         <button
                           type="button"
+                          role="tab"
+                          aria-selected={activeTab === 'followed'}
                           className={`tab-btn ${activeTab === 'followed' ? 'active' : ''}`}
                           onClick={() => setActiveTab('followed')}
                         >
                           Followed ({followedCount})
                         </button>
                       </div>
+
+                      <button
+                        type="button"
+                        className="refresh-icon-btn"
+                        onClick={refreshPlaylists}
+                        disabled={playlistsLoading}
+                        title="Refresh playlists"
+                        aria-label="Refresh playlists"
+                      >
+                        <FiRefreshCw className={playlistsLoading ? 'spin-icon' : ''} />
+                      </button>
                     </div>
 
-                    <div className="search-field playlist-search">
-                      <FiSearch aria-hidden="true" />
-                      <span className="sr-only">Search loaded playlists</span>
-                      <input
-                        value={playlistQuery}
-                        onChange={(event) => setPlaylistQuery(event.target.value)}
-                        placeholder="Search your playlists…"
-                      />
-                      {playlistQuery && (
-                        <button type="button" className="clear-inline-btn" onClick={() => setPlaylistQuery('')} aria-label="Clear search">
-                          <FiX />
-                        </button>
-                      )}
-                    </div>
-
-                    <button type="button" className="refresh-playlists" onClick={refreshPlaylists} disabled={playlistsLoading}>
-                      <FiRefreshCw className={playlistsLoading ? 'spin-icon' : ''} /> {playlistsLoading ? 'Refreshing playlists…' : 'Refresh playlists'}
-                    </button>
+                    <form onSubmit={loadPastedPlaylist} className="smart-search-form">
+                      <div className="search-field smart-search-field">
+                        <FiSearch aria-hidden="true" />
+                        <input
+                          value={playlistQuery}
+                          onChange={(event) => setPlaylistQuery(event.target.value)}
+                          placeholder="Search playlists or paste a Spotify link…"
+                          aria-label="Search playlists or paste Spotify link"
+                        />
+                        {playlistQuery && !isPastedSpotifyUrl && (
+                          <button
+                            type="button"
+                            className="clear-inline-btn"
+                            onClick={() => setPlaylistQuery('')}
+                            aria-label="Clear search"
+                          >
+                            <FiX />
+                          </button>
+                        )}
+                        {isPastedSpotifyUrl && (
+                          <button
+                            type="submit"
+                            className="load-url-pill-btn"
+                            disabled={urlLoading}
+                          >
+                            {urlLoading ? <span className="inline-spinner" /> : <><FiLink2 aria-hidden="true" /> Load</>}
+                          </button>
+                        )}
+                      </div>
+                    </form>
                   </div>
 
                   <div className="playlist-list">
-                    {shownPlaylists.map((playlist) => (
+                    {(!playlistQuery || 'liked songs'.includes(playlistQuery.toLowerCase())) && activeTab !== 'followed' && (
                       <button
-                        key={playlist.id}
                         type="button"
-                        className={`playlist-row ${selectedId === playlist.id ? 'selected' : ''}`}
-                        onClick={() => choosePlaylist(playlist)}
-                        aria-pressed={selectedId === playlist.id}
+                        className={`playlist-row liked-pinned-row ${selectedId === 'liked-songs' ? 'selected' : ''}`}
+                        onClick={selectLikedSongs}
+                        aria-pressed={selectedId === 'liked-songs'}
                       >
-                        <span className="playlist-art">
-                          {playlist.image ? (
-                            <img
-                              src={playlist.image}
-                              alt=""
-                              loading="lazy"
-                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                            />
-                          ) : null}
-                          <span className="playlist-art-fallback">
-                            <SiSpotify aria-hidden="true" />
-                          </span>
-                        </span>
+                        <span className="playlist-art liked-art-pinned">♥</span>
                         <span className="playlist-info">
                           <span className="playlist-title-line">
-                            <strong>{playlist.name}</strong>
-                            {playlist.isOwner ? (
-                              <span className="tag-badge tag-mine">You</span>
-                            ) : (
-                              <span className="tag-badge tag-followed">Followed</span>
-                            )}
+                            <strong>Liked Songs</strong>
+                            <span className="tag-badge tag-liked">Collection</span>
                           </span>
-                          <span>
-                            {playlist.count == null ? 'Items verified at transfer' : `${playlist.count} tracks`} · by {playlist.owner}
-                          </span>
+                          <span>Your saved tracks on Spotify</span>
                         </span>
                         <span className="playlist-check">
-                          {selectedId === playlist.id ? <FiCheck aria-hidden="true" /> : <FiArrowRight aria-hidden="true" />}
+                          {selectedId === 'liked-songs' ? <FiCheck aria-hidden="true" /> : <FiArrowRight aria-hidden="true" />}
                         </span>
                       </button>
-                    ))}
-                    {!playlistsLoading && shownPlaylists.length === 0 && (
+                    )}
+
+                    {playlistsLoading && playlists.length === 0 ? (
+                      <div className="skeleton-container" aria-label="Loading playlists">
+                        {[1, 2, 3, 4].map((i) => (
+                          <div key={i} className="playlist-skeleton-row">
+                            <div className="skeleton-art" />
+                            <div className="skeleton-info">
+                              <div className="skeleton-bar title-bar" />
+                              <div className="skeleton-bar sub-bar" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      shownPlaylists.map((playlist) => (
+                        <button
+                          key={playlist.id}
+                          type="button"
+                          className={`playlist-row ${selectedId === playlist.id ? 'selected' : ''}`}
+                          onClick={() => choosePlaylist(playlist)}
+                          aria-pressed={selectedId === playlist.id}
+                        >
+                          <span className="playlist-art">
+                            {playlist.image ? (
+                              <img
+                                src={playlist.image}
+                                alt=""
+                                loading="lazy"
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              />
+                            ) : null}
+                            <span className="playlist-art-fallback">
+                              <SiSpotify aria-hidden="true" />
+                            </span>
+                          </span>
+                          <span className="playlist-info">
+                            <span className="playlist-title-line">
+                              <strong>{playlist.name}</strong>
+                              {playlist.isOwner ? (
+                                <span className="tag-badge tag-mine">You</span>
+                              ) : (
+                                <span className="tag-badge tag-followed">Followed</span>
+                              )}
+                            </span>
+                            <span>
+                              {playlist.count == null ? 'Items verified at transfer' : `${playlist.count} tracks`} · by {playlist.owner}
+                            </span>
+                          </span>
+                          <span className="playlist-check">
+                            {selectedId === playlist.id ? <FiCheck aria-hidden="true" /> : <FiArrowRight aria-hidden="true" />}
+                          </span>
+                        </button>
+                      ))
+                    )}
+
+                    {!playlistsLoading && shownPlaylists.length === 0 && selectedId !== 'liked-songs' && (
                       <p className="list-empty">{playlistQuery ? 'No playlists match your search.' : 'No playlists found in this category.'}</p>
                     )}
-                    {playlistsLoading && <p className="list-empty">Loading playlists…</p>}
                   </div>
                   {nextOffset !== null && (
                     <button className="load-more" disabled={playlistsLoading} onClick={() => loadPlaylists(nextOffset)}>
@@ -654,22 +686,30 @@ export default function App() {
                     disabled={!selected || transferring}
                   />
 
-                  <button
-                    className="transfer-button"
-                    type="submit"
-                    disabled={!session.configured || !selected || selectedIsEmpty || !newName.trim() || (useSecondAccount && !session.destination) || transferring}
-                  >
-                    {selectedIsEmpty ? (
-                      'Playlist is empty'
-                    ) : (
-                      <>
-                        <span>Copy playlist</span>
-                        <FiArrowRight aria-hidden="true" />
-                      </>
-                    )}
-                  </button>
-                  {selected && useSecondAccount && !session.destination && (
-                    <p className="transfer-guidance">Connect the destination account above to enable copying.</p>
+                  {useSecondAccount && !session.destination ? (
+                    <button
+                      className="transfer-button cta-connect-dest"
+                      type="button"
+                      onClick={() => connect('destination')}
+                    >
+                      <span>Connect Destination Account</span>
+                      <FiArrowRight aria-hidden="true" />
+                    </button>
+                  ) : (
+                    <button
+                      className="transfer-button"
+                      type="submit"
+                      disabled={!session.configured || !selected || selectedIsEmpty || !newName.trim() || transferring}
+                    >
+                      {selectedIsEmpty ? (
+                        'Playlist is empty'
+                      ) : (
+                        <>
+                          <span>Copy playlist</span>
+                          <FiArrowRight aria-hidden="true" />
+                        </>
+                      )}
+                    </button>
                   )}
                   <span className="transfer-footnote"><FiShield aria-hidden="true" /> Original playlist stays untouched</span>
                 </form>
