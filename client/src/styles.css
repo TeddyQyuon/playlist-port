@@ -161,3 +161,17 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #b8ff
 .refresh-playlists{display:block;width:calc(100% - 24px);margin:0 12px 7px;padding:10px;border:1px solid #3a435d;border-radius:9px;background:#202b45;color:#c6f7d8;font-size:12px;font-weight:700;text-align:center}
 .refresh-playlists:hover:not(:disabled){background:#2d3752;border-color:#658375}
 .refresh-playlists:disabled{opacity:.65}
+
+.liked-songs-btn{width:calc(100% - 24px);margin:12px 12px 6px;padding:9px 12px;background:#202b45;border:1px solid #3a435d;border-radius:11px;display:flex;align-items:center;gap:12px;color:#f4f4fa;cursor:pointer;transition:background .2s,border-color .2s}
+.liked-songs-btn:hover,.liked-songs-btn.selected{background:#2a3657;border-color:#52c285}
+.liked-songs-btn.selected{background:#1d382f;border-color:#84c6a0}
+.liked-art{width:38px;height:38px;border-radius:8px;background:linear-gradient(135deg,#450af5,#c4efd9);color:#fff;display:grid;place-items:center;font-size:18px;font-weight:900;flex:none}
+.liked-info{display:grid;gap:2px;text-align:left;flex:1}
+.liked-info strong{font-size:14px}
+.liked-info span{font-size:12px;color:#a3a8be}
+.liked-badge{font-size:16px;color:#b8ffcf;display:grid;place-items:center;width:24px;flex:none}
+.url-search-form{margin:6px 12px}
+.url-search{height:46px;background:#252d47;border-color:#3a435d;border-radius:10px}
+.url-search input{font-size:13px}
+.url-search button{padding:6px 12px;font-size:12px;height:34px;margin-right:4px}
+
