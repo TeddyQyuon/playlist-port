@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { SiApplemusic, SiDeezer, SiSpotify, SiTidal, SiYoutube, SiYoutubemusic } from 'react-icons/si';
 import {
   FiAlertTriangle, FiArrowRight, FiCheck, FiCheckCircle, FiChevronDown, FiCopy,
-  FiExternalLink, FiInfo, FiLink2, FiLock, FiMusic, FiPlus, FiRefreshCw,
-  FiSearch, FiShield, FiUser, FiUsers, FiX
+  FiExternalLink, FiInfo, FiLink2, FiLock, FiMoon, FiMusic, FiPlus, FiRefreshCw,
+  FiSearch, FiShield, FiSliders, FiSun, FiUser, FiUsers, FiX
 } from 'react-icons/fi';
 import { api } from './api.js';
-import { readSessionItem, removeSessionItem, writeSessionItem } from './storage.js';
+import { readLocalItem, readSessionItem, removeSessionItem, writeLocalItem, writeSessionItem } from './storage.js';
 
 const services = [
   { name: 'Spotify', Icon: SiSpotify, ready: true },
@@ -23,7 +23,22 @@ const filters = [
   { id: 'followed', label: 'Followed' }
 ];
 
-const steps = ['Connect account', 'Choose playlist', 'Review & copy', 'Result'];
+const steps = ['Connect', 'Choose playlist', 'Copy'];
+
+function ThemeToggle({ theme, onToggle }) {
+  const next = theme === 'light' ? 'dark' : 'light';
+  return (
+    <button
+      type="button"
+      className="theme-toggle"
+      onClick={onToggle}
+      aria-label={`Switch to ${next} theme`}
+      title={`Switch to ${next} theme`}
+    >
+      {theme === 'light' ? <FiMoon aria-hidden="true" /> : <FiSun aria-hidden="true" />}
+    </button>
+  );
+}
 
 function Account({ label, account, onConnect, onDisconnect, disabled, connectLabel = 'Connect Spotify', justConnected }) {
   return (
@@ -69,13 +84,13 @@ function StepHeading({ number, title, description, id }) {
   );
 }
 
-function Stepper({ currentStep }) {
+function Stepper({ currentStep, complete }) {
   return (
     <>
       <ol className="stepper" aria-label="Transfer progress">
         {steps.map((label, index) => {
           const number = index + 1;
-          const state = number < currentStep ? 'done' : number === currentStep ? 'current' : 'upcoming';
+          const state = complete || number < currentStep ? 'done' : number === currentStep ? 'current' : 'upcoming';
           return (
             <li key={label} className={state} aria-current={state === 'current' ? 'step' : undefined}>
               <span className="step-marker" aria-hidden="true">{state === 'done' ? <FiCheck /> : number}</span>
@@ -85,10 +100,10 @@ function Stepper({ currentStep }) {
         })}
       </ol>
       <div className="stepper-compact">
-        <span className="stepper-compact-label">Step {currentStep} of {steps.length}</span>
-        <strong>{steps[currentStep - 1]}</strong>
+        <span className="stepper-compact-label">{complete ? 'Transfer complete' : `Step ${currentStep} of ${steps.length}`}</span>
+        <strong>{complete ? 'All set' : steps[currentStep - 1]}</strong>
         <span className="stepper-compact-track" aria-hidden="true">
-          <i style={{ width: `${(currentStep / steps.length) * 100}%` }} />
+          <i style={{ width: `${complete ? 100 : (currentStep / steps.length) * 100}%` }} />
         </span>
       </div>
     </>
@@ -266,6 +281,12 @@ export default function App() {
   const [newName, setNewName] = useState(() => readSessionItem('playlist-port.name'));
   const [urlLoading, setUrlLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
+  const [sortOrder, setSortOrder] = useState(() => readSessionItem('playlist-port.sort', 'recent'));
+  const [playlistTotal, setPlaylistTotal] = useState(null);
+  const [theme, setTheme] = useState(() => {
+    if (typeof document !== 'undefined') return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+    return readLocalItem('playlist-port.theme') === 'light' ? 'light' : 'dark';
+  });
   const [useSecondAccount, setUseSecondAccount] = useState(() => readSessionItem('playlist-port.second') === 'true');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -293,17 +314,24 @@ export default function App() {
     : (session.source?.name || 'This account');
   const mineCount = playlists.filter((playlist) => playlist.isOwner).length;
   const followedCount = playlists.filter((playlist) => !playlist.isOwner).length;
+  const query = playlistQuery.trim().toLowerCase();
   const filteredByTab = playlists.filter((playlist) => {
     if (activeTab === 'mine') return playlist.isOwner;
     if (activeTab === 'followed') return !playlist.isOwner;
     return true;
   });
-  const shownPlaylists = filteredByTab.filter((playlist) =>
-    playlist.name.toLowerCase().includes(playlistQuery.toLowerCase())
-  );
+  const shownPlaylists = filteredByTab
+    .filter((playlist) => !query || playlist.name.toLowerCase().includes(query) || (playlist.owner || '').toLowerCase().includes(query))
+    .sort((a, b) => {
+      if (sortOrder === 'name') return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+      if (sortOrder === 'size') return (b.count ?? -1) - (a.count ?? -1);
+      return 0;
+    });
   const isPastedSpotifyUrl = /(?:playlist\/|playlist:)[A-Za-z0-9_-]{1,64}/.test(playlistQuery.trim());
-  const likedVisible = activeTab !== 'followed' && (!playlistQuery || 'liked songs'.includes(playlistQuery.toLowerCase()));
-  const currentStep = result || partial ? 4 : !session.source ? 1 : !selected ? 2 : 3;
+  const likedVisible = activeTab !== 'followed' && (!query || 'liked songs'.includes(query));
+  const flowComplete = Boolean(result || partial);
+  const currentStep = flowComplete ? steps.length : !session.source ? 1 : !selected ? 2 : 3;
+  const loadedSuffix = nextOffset !== null ? '+' : '';
   const nameMissing = Boolean(selected) && !newName.trim();
   const readyToCopy = session.configured && session.source && selected && !selectedIsEmpty && newName.trim() && !sameDestination && (!useSecondAccount || session.destination);
   const showQuickCopy = Boolean(selected && !result && !partial && !transferring && workspaceInView && !summaryInView);
@@ -345,6 +373,24 @@ export default function App() {
   useEffect(() => () => clearTimeout(copyTimer.current), []);
 
   useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', theme === 'light' ? '#f5f6f8' : '#08090c');
+  }, [theme]);
+
+  useEffect(() => {
+    const focusSearch = (event) => {
+      if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey || !session.source) return;
+      const active = document.activeElement;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT' || active.isContentEditable)) return;
+      event.preventDefault();
+      document.getElementById('playlist-search')?.focus();
+    };
+    window.addEventListener('keydown', focusSearch);
+    return () => window.removeEventListener('keydown', focusSearch);
+  }, [session.source]);
+
+  useEffect(() => {
     if (!transferring) return undefined;
     const warnBeforeUnload = (event) => {
       event.preventDefault();
@@ -384,6 +430,7 @@ export default function App() {
     if (!session.source) {
       setPlaylists([]);
       setNextOffset(null);
+      setPlaylistTotal(null);
       return;
     }
     loadPlaylists(0, true);
@@ -423,12 +470,24 @@ export default function App() {
     scrollToWorkspace(true);
   }
 
+  function toggleTheme() {
+    const next = theme === 'light' ? 'dark' : 'light';
+    setTheme(next);
+    writeLocalItem('playlist-port.theme', next);
+  }
+
+  function chooseSort(value) {
+    setSortOrder(value);
+    writeSessionItem('playlist-port.sort', value);
+  }
+
   async function loadPlaylists(offset, replace = false) {
     setPlaylistsLoading(true);
     try {
       const data = await api(`/playlists?offset=${offset}`);
       setPlaylists((current) => replace ? data.items : [...current, ...data.items]);
       setNextOffset(data.nextOffset);
+      setPlaylistTotal(Number.isFinite(data.total) ? data.total : null);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -606,9 +665,13 @@ export default function App() {
           <nav className="header-nav" aria-label="Main navigation">
             <a href="#how-it-works">How it works</a>
             <a href="#faq">FAQ</a>
-            <button type="button" className="btn btn-primary btn-sm header-cta" onClick={startFlow} disabled={sessionLoading}>
-              {session.source ? 'Open workspace' : 'Connect Spotify'}
-            </button>
+            <div className="header-actions">
+              <ThemeToggle theme={theme} onToggle={toggleTheme} />
+              <button type="button" className="btn btn-primary btn-sm header-cta" onClick={startFlow} disabled={sessionLoading}>
+                <span className="header-cta-full">{session.source ? 'Open workspace' : 'Connect Spotify'}</span>
+                <span className="header-cta-short">{session.source ? 'Workspace' : 'Connect'}</span>
+              </button>
+            </div>
           </nav>
         </div>
       </header>
@@ -616,7 +679,7 @@ export default function App() {
       <main id="top">
         <section className="hero content-width" aria-labelledby="hero-title">
           <div className="hero-copy">
-            <span className="kicker"><span className="kicker-dot" aria-hidden="true" /> Spotify → Spotify</span>
+            <span className="kicker"><span className="kicker-dot" aria-hidden="true" /> Spotify playlist transfer</span>
             <h1 id="hero-title">Move your playlists <span>without losing the order.</span></h1>
             <p className="hero-sub">Copy a Spotify playlist into the same account or another one in a few clicks. Songs, episodes, and their order come with it — your original stays untouched.</p>
             <div className="hero-actions">
@@ -638,8 +701,8 @@ export default function App() {
           <div className="hero-visual">
             <div className="preview-card preview-live">
               <div className="preview-head">
-                <span className="preview-title"><span className="status-dot" aria-hidden="true" /> {session.source ? 'Workspace ready' : 'Start a transfer'}</span>
-                <span className="preview-lock"><FiLock aria-hidden="true" /> Private</span>
+                <span className="preview-title"><span className="status-dot" aria-hidden="true" /> {session.source ? 'Workspace ready' : 'Transfer preview'}</span>
+                <span className="preview-lock"><FiLock aria-hidden="true" /> Private by default</span>
               </div>
               <div className="preview-route">
                 <div className="preview-account">
@@ -681,12 +744,8 @@ export default function App() {
                 <span><FiCheckCircle aria-hidden="true" /> Order preserved</span>
                 <span><FiShield aria-hidden="true" /> Verified copy</span>
               </div>
-              <button type="button" className="btn btn-primary btn-block preview-cta" onClick={startFlow} disabled={sessionLoading}>
-                {heroPrimary} <FiArrowRight aria-hidden="true" />
-              </button>
               <p className="preview-note"><FiShield aria-hidden="true" /> Official Spotify API · encrypted sessions · no database</p>
             </div>
-            <div className="preview-badge"><FiCheckCircle aria-hidden="true" /> Ready to port</div>
           </div>
         </section>
 
@@ -704,14 +763,14 @@ export default function App() {
             <div>
               <span className="kicker">TRANSFER WORKSPACE</span>
               <h2 id="workspace-title">Copy a Spotify playlist</h2>
-              <p>Connect your account, choose a playlist, and send a copy wherever you want it.</p>
+              <p>Connect your account, choose a playlist, and send an exact copy — usually in under a minute.</p>
             </div>
             <span className="spotify-chip"><SiSpotify aria-hidden="true" /> Spotify · Free &amp; Premium</span>
           </div>
 
           <div className="app-shell">
             <div className="app-topbar">
-              <Stepper currentStep={currentStep} />
+              <Stepper currentStep={currentStep} complete={flowComplete} />
               <span className={`connection-pill ${session.source ? 'is-online' : ''}`}>
                 <span className="status-dot" aria-hidden="true" />
                 {sessionLoading ? 'Checking connection' : session.source ? 'Source connected' : 'Not connected'}
@@ -763,29 +822,61 @@ export default function App() {
               <div className="workflow-grid" aria-busy={playlistsLoading || urlLoading}>
                 <div className="workflow-main">
                   <section className="panel" aria-labelledby="step-connect-title">
-                    <StepHeading
-                      number="01"
-                      title="Connect your account"
-                      description="Approve read access and permission to create a private copy. Free and Premium accounts both work."
-                      id="step-connect-title"
-                    />
-                    <Account
-                      label="SOURCE ACCOUNT"
-                      account={session.source}
-                      onConnect={() => connect('source')}
-                      onDisconnect={() => disconnect('source')}
-                      disabled={sessionLoading || !session.configured || transferring}
-                      justConnected={justConnected === 'source'}
-                    />
-                    <details className="access-details">
-                      <summary>What access does Playlist Port need? <FiChevronDown aria-hidden="true" /></summary>
-                      <p>Read access to your playlists and Liked Songs, plus permission to create a new private playlist. Tokens stay in encrypted, HttpOnly cookies and expire after 24 hours.</p>
-                    </details>
+                    {session.source ? (
+                      <details className="connected-step">
+                        <summary className="connected-summary">
+                          <span className="step-number" aria-hidden="true">1</span>
+                          <span className="connected-copy">
+                            <span className="connected-title" id="step-connect-title">Connect your account</span>
+                            <span className="connected-meta">
+                              <span className="status-dot" aria-hidden="true" />
+                              {session.source.name} · Connected securely
+                            </span>
+                          </span>
+                          <span className="connected-action">Manage <FiChevronDown aria-hidden="true" /></span>
+                        </summary>
+                        <div className="connected-body">
+                          <Account
+                            label="SOURCE ACCOUNT"
+                            account={session.source}
+                            onConnect={() => connect('source')}
+                            onDisconnect={() => disconnect('source')}
+                            disabled={sessionLoading || !session.configured || transferring}
+                            justConnected={justConnected === 'source'}
+                          />
+                          <details className="access-details">
+                            <summary>What access does Playlist Port need? <FiChevronDown aria-hidden="true" /></summary>
+                            <p>Read access to your playlists and Liked Songs, plus permission to create a new private playlist. Tokens stay in encrypted, HttpOnly cookies and expire after 24 hours.</p>
+                          </details>
+                        </div>
+                      </details>
+                    ) : (
+                      <>
+                        <StepHeading
+                          number="1"
+                          title="Connect your account"
+                          description="Approve read access and permission to create a private copy. Free and Premium accounts both work."
+                          id="step-connect-title"
+                        />
+                        <Account
+                          label="SOURCE ACCOUNT"
+                          account={session.source}
+                          onConnect={() => connect('source')}
+                          onDisconnect={() => disconnect('source')}
+                          disabled={sessionLoading || !session.configured || transferring}
+                          justConnected={justConnected === 'source'}
+                        />
+                        <details className="access-details">
+                          <summary>What access does Playlist Port need? <FiChevronDown aria-hidden="true" /></summary>
+                          <p>Read access to your playlists and Liked Songs, plus permission to create a new private playlist. Tokens stay in encrypted, HttpOnly cookies and expire after 24 hours.</p>
+                        </details>
+                      </>
+                    )}
 
                     <div className="panel-rule" />
 
                     <StepHeading
-                      number="02"
+                      number="2"
                       title="Choose a playlist"
                       description="Pick a playlist you own or follow, your Liked Songs, or paste a public Spotify link."
                       id="step-playlist-title"
@@ -807,20 +898,39 @@ export default function App() {
                                 onClick={() => setActiveTab(filter.id)}
                               >
                                 {filter.label}
-                                <span>{filter.id === 'all' ? playlists.length : filter.id === 'mine' ? mineCount : followedCount}</span>
+                                <span>
+                                  {filter.id === 'all' ? playlists.length : filter.id === 'mine' ? mineCount : followedCount}
+                                  {loadedSuffix}
+                                </span>
                               </button>
                             ))}
                           </div>
-                          <button
-                            type="button"
-                            className="icon-button"
-                            onClick={refreshPlaylists}
-                            disabled={playlistsLoading}
-                            title="Refresh playlists"
-                            aria-label="Refresh playlists"
-                          >
-                            <FiRefreshCw className={playlistsLoading ? 'spin' : ''} aria-hidden="true" />
-                          </button>
+                          <div className="playlist-tools">
+                            <label className="sort-control">
+                              <FiSliders aria-hidden="true" />
+                              <span className="sr-only">Sort playlists</span>
+                              <select
+                                value={sortOrder}
+                                onChange={(event) => chooseSort(event.target.value)}
+                                aria-label="Sort playlists"
+                              >
+                                <option value="recent">Recently added</option>
+                                <option value="name">Name A–Z</option>
+                                <option value="size">Most items</option>
+                              </select>
+                              <FiChevronDown aria-hidden="true" />
+                            </label>
+                            <button
+                              type="button"
+                              className="icon-button"
+                              onClick={refreshPlaylists}
+                              disabled={playlistsLoading}
+                              title="Refresh playlists"
+                              aria-label="Refresh playlists"
+                            >
+                              <FiRefreshCw className={playlistsLoading ? 'spin' : ''} aria-hidden="true" />
+                            </button>
+                          </div>
                         </div>
 
                         <form className="playlist-search" onSubmit={loadPastedPlaylist} role="search">
@@ -831,8 +941,10 @@ export default function App() {
                             type="search"
                             value={playlistQuery}
                             onChange={(event) => setPlaylistQuery(event.target.value)}
-                            placeholder="Search playlists or paste a Spotify link…"
+                            onKeyDown={(event) => { if (event.key === 'Escape') setPlaylistQuery(''); }}
+                            placeholder="Search by name or owner, or paste a link"
                             autoComplete="off"
+                            aria-keyshortcuts="/"
                           />
                           {isPastedSpotifyUrl ? (
                             <button type="submit" className="btn btn-primary btn-xs" disabled={urlLoading} aria-label="Load playlist from link">
@@ -842,7 +954,9 @@ export default function App() {
                             <button type="button" className="icon-button" onClick={() => setPlaylistQuery('')} aria-label="Clear search">
                               <FiX aria-hidden="true" />
                             </button>
-                          ) : null}
+                          ) : (
+                            <kbd className="search-kbd" aria-hidden="true">/</kbd>
+                          )}
                         </form>
 
                         <div className="playlist-list">
@@ -897,52 +1011,59 @@ export default function App() {
                           )}
 
                           {!playlistsLoading && shownPlaylists.length === 0 && !likedVisible && (
-                            <p className="list-empty">{playlistQuery ? 'No playlists match your search.' : 'No playlists in this category yet.'}</p>
+                            <p className="list-empty">
+                              {playlistQuery
+                                ? `No loaded playlists match “${playlistQuery.trim()}”.${nextOffset !== null ? ' Load more below, or paste a full Spotify link.' : ' Try another search.'}`
+                                : 'No playlists in this category yet.'}
+                            </p>
                           )}
                         </div>
 
-                        {nextOffset !== null && (
-                          <button type="button" className="load-more" disabled={playlistsLoading} onClick={() => loadPlaylists(nextOffset)}>
-                            {playlistsLoading ? <><span className="button-spinner" aria-hidden="true" /> Loading…</> : <>Load more playlists <FiChevronDown aria-hidden="true" /></>}
-                          </button>
-                        )}
+                        <div className="list-footer">
+                          <span role="status">
+                            {playlistQuery
+                              ? `${shownPlaylists.length} ${shownPlaylists.length === 1 ? 'match' : 'matches'}`
+                              : `${shownPlaylists.length} ${shownPlaylists.length === 1 ? 'playlist' : 'playlists'}`}
+                            {nextOffset !== null
+                              ? ` · ${playlists.length} of ${playlistTotal ?? playlists.length} loaded`
+                              : ' · all loaded'}
+                          </span>
+                          {nextOffset !== null && (
+                            <button type="button" className="load-more" disabled={playlistsLoading} onClick={() => loadPlaylists(nextOffset)}>
+                              {playlistsLoading ? <><span className="button-spinner" aria-hidden="true" /> Loading…</> : <>Load more <FiChevronDown aria-hidden="true" /></>}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <div className="empty-panel">
                         <span className="empty-icon"><FiMusic aria-hidden="true" /></span>
-                        <p>Connect Spotify to browse your playlists or paste a public link.</p>
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => connect('source')}
-                          disabled={sessionLoading || !session.configured}
-                        >
-                          Connect Spotify
-                        </button>
+                        <p>Connect your source account above to browse your playlists, or paste a public Spotify link.</p>
                       </div>
                     )}
                   </section>
                 </div>
 
                 <aside className="workflow-side" aria-label="Destination and copy summary">
-                  <section className="panel destination-panel" aria-labelledby="step-destination-title">
+                  <form className="panel transfer-panel" ref={summaryPanelRef} onSubmit={startTransfer} aria-labelledby="step-destination-title">
                     <StepHeading
-                      number="03"
-                      title="Choose a destination"
-                      description="Create the copy here or connect a second Spotify account."
+                      number="3"
+                      title="Send the copy"
+                      description="Choose where it goes, then confirm the details."
                       id="step-destination-title"
                     />
+
                     <div className="segmented" role="radiogroup" aria-label="Destination account">
                       <label className={`segment ${!useSecondAccount ? 'active' : ''}`}>
                         <input type="radio" name="destination" checked={!useSecondAccount} onChange={() => chooseDestination(false)} disabled={transferring} />
                         <span className="segment-icon" aria-hidden="true"><FiUser /></span>
-                        <span className="segment-copy"><strong>Same Spotify account</strong><small>Create a new playlist here</small></span>
+                        <span className="segment-copy"><strong>Same account</strong><small>Create it here</small></span>
                         <span className="radio-ui" aria-hidden="true" />
                       </label>
                       <label className={`segment ${useSecondAccount ? 'active' : ''}`}>
                         <input type="radio" name="destination" checked={useSecondAccount} onChange={() => chooseDestination(true)} disabled={transferring} />
                         <span className="segment-icon" aria-hidden="true"><FiUsers /></span>
-                        <span className="segment-copy"><strong>Another Spotify account</strong><small>Connect the receiving account</small></span>
+                        <span className="segment-copy"><strong>Another account</strong><small>Connect the receiver</small></span>
                         <span className="radio-ui" aria-hidden="true" />
                       </label>
                     </div>
@@ -959,22 +1080,22 @@ export default function App() {
                           justConnected={justConnected === 'destination'}
                         />
                         {sameDestination && (
-                          <p className="inline-warning" role="alert"><FiAlertTriangle aria-hidden="true" /> This is the same account as your source. Connect a different account or choose “Same Spotify account”.</p>
+                          <p className="inline-warning" role="alert"><FiAlertTriangle aria-hidden="true" /> This is the same account as your source. Connect a different account or choose “Same account”.</p>
                         )}
                       </div>
                     )}
 
                     <p className="panel-note"><FiLock aria-hidden="true" /> New copies are hidden from your public profile by default.</p>
-                  </section>
 
-                  <form className="panel summary-panel" ref={summaryPanelRef} aria-labelledby="step-copy-title" onSubmit={startTransfer}>
-                    <div className="summary-head">
-                      <StepHeading
-                        number="04"
-                        title="Review &amp; copy"
-                        description="Name the new playlist and start the transfer."
-                        id="step-copy-title"
-                      />
+                    <div className="panel-rule" />
+
+                    <div className="review-head">
+                      <h4 className="review-title" id="step-copy-title">Review &amp; copy</h4>
+                      {selected && (
+                        <span className={`review-badge ${readyToCopy ? 'is-ready' : ''}`}>
+                          {readyToCopy ? 'Ready' : 'Setup needed'}
+                        </span>
+                      )}
                     </div>
 
                     {selected ? (
@@ -1021,16 +1142,12 @@ export default function App() {
                       </>
                     ) : (
                       <div className="summary-empty">
-                        <span className="empty-icon"><FiCheckCircle aria-hidden="true" /></span>
-                        <p>Choose a playlist and your copy summary will appear here.</p>
+                        <span className="empty-icon"><FiMusic aria-hidden="true" /></span>
+                        <p>Select a playlist to review the copy details.</p>
                       </div>
                     )}
 
-                    {!session.source ? (
-                      <button type="button" className="btn btn-primary btn-block" onClick={() => connect('source')} disabled={sessionLoading || !session.configured}>
-                        Connect Spotify <FiArrowRight aria-hidden="true" />
-                      </button>
-                    ) : !selected ? (
+                    {!session.source ? null : !selected ? (
                       <button type="button" className="btn btn-primary btn-block" disabled>Choose a playlist</button>
                     ) : useSecondAccount && !session.destination ? (
                       <button type="button" className="btn btn-primary btn-block" onClick={() => connect('destination')} disabled={!session.configured}>
@@ -1065,22 +1182,22 @@ export default function App() {
         </section>
 
         <section className="services-section content-width" aria-labelledby="services-title">
-          <div className="section-heading section-heading-centered">
-            <span className="kicker">WORKS WITH</span>
-            <h2 id="services-title">Spotify today. More services next.</h2>
-            <p>Playlist Port is built specifically for Spotify. Apple Music, YouTube Music, YouTube, Deezer, and TIDAL are on the roadmap.</p>
+          <div className="services-inner">
+            <div className="services-copy">
+              <span className="kicker">WORKS WITH</span>
+              <h2 id="services-title">Spotify today. More services next.</h2>
+              <p>Transfers run between Spotify accounts for now. Apple Music, YouTube Music, Deezer, and TIDAL are on the roadmap.</p>
+            </div>
+            <ul className="service-list">
+              {services.map(({ name, Icon, ready }) => (
+                <li key={name} className={`service-item ${ready ? 'is-ready' : ''}`}>
+                  <Icon aria-hidden="true" />
+                  <span>{name}</span>
+                  {ready && <span className="service-live">Live</span>}
+                </li>
+              ))}
+            </ul>
           </div>
-          <ul className="service-grid">
-            {services.map(({ name, Icon, ready }) => (
-              <li key={name} className={`service-tile ${ready ? 'is-ready' : ''}`}>
-                {ready && <span className="service-flag"><FiCheck aria-hidden="true" /> Live</span>}
-                <span className="service-logo"><Icon aria-hidden="true" /></span>
-                <strong>{name}</strong>
-                <span className="service-status">{ready ? 'Available now' : 'Coming soon'}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="services-note"><FiInfo aria-hidden="true" /> Transfers currently run between Spotify accounts only. New services will appear here when they ship.</p>
         </section>
 
         <section className="how-section content-width" id="how-it-works" aria-labelledby="how-title">

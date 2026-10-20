@@ -23,3 +23,20 @@ export function removeSessionItem(key) {
     // Disconnecting must work even when persisted preferences are unavailable.
   }
 }
+
+// The theme is a device preference, so it survives new browser sessions.
+export function readLocalItem(key, fallback = '') {
+  try {
+    return globalThis.localStorage.getItem(key) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export function writeLocalItem(key, value) {
+  try {
+    globalThis.localStorage.setItem(key, value);
+  } catch {
+    // A blocked or full storage area must not prevent switching themes.
+  }
+}
