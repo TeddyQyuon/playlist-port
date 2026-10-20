@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const { SpotifyError, exchangeCode, spotifyRequest } = require('./spotify.cjs');
 const { transferPlaylist } = require('./transfer.cjs');
 const { sealedSession } = require('./sealed-session.cjs');
-const { clientDocument } = require('./client-document.cjs');
+const { clientDocument, staticCacheControl } = require('./client-document.cjs');
 const { securityHeaders, protectApiWrites } = require('./security.cjs');
 
 const app = express();
@@ -60,14 +60,17 @@ app.get('/api/auth/start/:slot', (req, res, next) => {
   const state = crypto.randomBytes(24).toString('hex');
   req.session.oauth = { slot: req.params.slot, state, createdAt: Date.now() };
   const url = new URL('https://accounts.spotify.com/authorize');
-  url.search = new URLSearchParams({
+  const params = {
     client_id: process.env.SPOTIFY_CLIENT_ID,
     response_type: 'code',
     redirect_uri: process.env.SPOTIFY_REDIRECT_URI,
     state,
-    scope: 'playlist-read-private playlist-read-collaborative playlist-modify-private user-read-private user-library-read',
-    show_dialog: 'true'
-  }).toString();
+    scope: 'playlist-read-private playlist-read-collaborative playlist-modify-private user-read-private user-library-read'
+  };
+  // Only the receiving account needs the account chooser. The source keeps the
+  // normal first-time consent flow and is not asked to approve on every visit.
+  if (req.params.slot === 'destination') params.show_dialog = 'true';
+  url.search = new URLSearchParams(params).toString();
 
   req.session.save((error) => error ? next(error) : res.redirect(url.toString()));
 });
@@ -236,7 +239,10 @@ const dist = path.resolve(__dirname, '../../client/dist');
 if (fs.existsSync(dist)) {
   const sendClientDocument = clientDocument(path.join(dist, 'index.html'));
   app.get(['/', '/index.html'], sendClientDocument);
-  app.use(express.static(dist, { index: false }));
+  app.use(express.static(dist, {
+    index: false,
+    setHeaders: (res, filePath) => res.set('Cache-Control', staticCacheControl(filePath))
+  }));
   app.get('*', sendClientDocument);
 }
 

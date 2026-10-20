@@ -1,5 +1,13 @@
 const path = require('node:path');
 
+function staticCacheControl(filePath) {
+  if (path.basename(filePath) === 'index.html') return 'no-store';
+  // Vite fingerprints everything in /assets, so those files can be cached forever.
+  return /[\\/]assets[\\/]/.test(filePath)
+    ? 'public, max-age=31536000, immutable'
+    : 'public, max-age=3600';
+}
+
 function clientDocument(indexFile) {
   return (req, res) => {
     // A missing script or stylesheet must not receive the SPA document.
@@ -17,4 +25,4 @@ function clientDocument(indexFile) {
   };
 }
 
-module.exports = { clientDocument };
+module.exports = { clientDocument, staticCacheControl };
