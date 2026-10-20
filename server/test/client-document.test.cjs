@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
 const express = require('express');
-const { clientDocument } = require('../src/client-document.cjs');
+const { clientDocument, staticCacheControl } = require('../src/client-document.cjs');
 
 const fixedTime = new Date('2018-10-20T01:46:40Z');
 const oldHtml = '<script type="module" src="/assets/old.js"></script>';
@@ -50,7 +50,10 @@ function clientApp(dist) {
   const app = express();
   const document = clientDocument(path.join(dist, 'index.html'));
   app.get(['/', '/index.html'], document);
-  app.use(express.static(dist, { index: false }));
+  app.use(express.static(dist, {
+    index: false,
+    setHeaders: (res, filePath) => res.set('Cache-Control', staticCacheControl(filePath))
+  }));
   app.get('*', document);
   return app;
 }
@@ -102,4 +105,15 @@ test('the current JavaScript bundle is still served with its correct content typ
   assert.equal(response.status, 200);
   assert.match(response.headers['content-type'], /javascript/);
   assert.equal(response.body, 'export const loaded = true;');
+});
+
+test('fingerprinted assets are immutable while public files are refreshed hourly', async t => {
+  const dist = fixture(t);
+  writeIndex(dist, newHtml);
+  fs.writeFileSync(path.join(dist, 'favicon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+  const server = await start(t, clientApp(dist));
+  const asset = await get(server, '/assets/new.js');
+  assert.equal(asset.headers['cache-control'], 'public, max-age=31536000, immutable');
+  const favicon = await get(server, '/favicon.svg');
+  assert.equal(favicon.headers['cache-control'], 'public, max-age=3600');
 });

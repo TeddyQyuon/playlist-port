@@ -54,6 +54,7 @@ test('production entry protects documents, API responses, and errors with browse
     assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
     const csp = response.headers.get('content-security-policy');
     assert.match(csp, /(?:^|;\s*)script-src 'self'(?:;|$)/);
+    assert.match(csp, /(?:^|;\s*)img-src 'self' data: https:\/\/i\.scdn\.co https:\/\/mosaic\.scdn\.co https:\/\/\*\.scdn\.co https:\/\/\*\.spotifycdn\.com(?:;|$)/);
     assert.match(csp, /(?:^|;\s*)frame-ancestors 'none'(?:;|$)/);
     assert.match(csp, /(?:^|;\s*)object-src 'none'(?:;|$)/);
     assert.equal(response.headers.get('access-control-allow-origin'), null);

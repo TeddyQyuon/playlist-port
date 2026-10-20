@@ -39,6 +39,7 @@ test('OAuth state is checked and account tokens remain server-side', async () =>
     const authorize = new URL(start.headers.get('location'));
     assert.equal(authorize.hostname, 'accounts.spotify.com');
     assert.equal(authorize.searchParams.get('redirect_uri'), process.env.SPOTIFY_REDIRECT_URI);
+    assert.equal(authorize.searchParams.get('show_dialog'), null, 'source sign-in should not force the account chooser');
     const state = authorize.searchParams.get('state');
     assert.ok(state);
 
@@ -71,7 +72,9 @@ test('OAuth state is checked and account tokens remain server-side', async () =>
       headers: { Cookie: connectedCookie }, redirect: 'manual'
     });
     const secondCookie = `${connectedCookie}; ${second.headers.get('set-cookie').split(';')[0]}`;
-    const secondState = new URL(second.headers.get('location')).searchParams.get('state');
+    const secondAuthorize = new URL(second.headers.get('location'));
+    assert.equal(secondAuthorize.searchParams.get('show_dialog'), 'true', 'destination sign-in should let the user pick another account');
+    const secondState = secondAuthorize.searchParams.get('state');
     denyProfile = true;
     const refused = await nativeFetch(`${base}/api/auth/callback?code=second&state=${secondState}`, {
       headers: { Cookie: secondCookie }, redirect: 'manual'

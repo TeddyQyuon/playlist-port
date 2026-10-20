@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://playlist-port-nine.vercel.app/sitemap.xml
