@@ -5,19 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#08090c" />
-    <script>
-      (function () {
-        try {
-          var saved = localStorage.getItem('playlist-port.theme');
-          var theme = saved === 'light' || saved === 'dark'
-            ? saved
-            : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-          document.documentElement.dataset.theme = theme;
-          var meta = document.querySelector('meta[name="theme-color"]');
-          if (meta) meta.setAttribute('content', theme === 'light' ? '#f5f6f8' : '#08090c');
-        } catch (error) {}
-      })();
-    </script>
+    <script src="/theme-init.js"></script>
     <meta name="description" content="Copy a Spotify playlist to the same account or another one in a few clicks. Songs, episodes, and their order come with it. Free and Premium accounts supported." />
     <link rel="canonical" href="https://playlist-port-nine.vercel.app/" />
     <meta name="robots" content="index, follow" />

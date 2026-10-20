@@ -31,6 +31,19 @@ test('SEO, social, and install metadata point at real assets', () => {
   assert.ok(fs.statSync(path.join(publicDir, 'og-image.png')).size < 1_000_000, 'social preview must stay lightweight');
 });
 
+test('the startup theme script is external and allowed by the CSP', () => {
+  const html = fs.readFileSync(indexFile, 'utf8');
+  const themeScript = path.join(publicDir, 'theme-init.js');
+  assert.match(html, /<script src="\/theme-init\.js"><\/script>/);
+  assert.ok(fs.existsSync(themeScript), 'theme-init.js must exist in client/public');
+  assert.match(fs.readFileSync(themeScript, 'utf8'), /prefers-color-scheme/);
+
+  const inlineScripts = [...html.matchAll(/<script\b[^>]*>/g)]
+    .map((match) => match[0])
+    .filter((tag) => !/\ssrc=/.test(tag));
+  assert.deepEqual(inlineScripts, [], 'scripts must have a src because the CSP only allows self-hosted files');
+});
+
 test('web app manifest, robots, and sitemap stay consistent', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(publicDir, 'manifest.webmanifest'), 'utf8'));
   assert.equal(manifest.name, 'Playlist Port');
