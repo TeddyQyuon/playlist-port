@@ -36,7 +36,7 @@ test('web app manifest, robots, and sitemap stay consistent', () => {
   assert.equal(manifest.name, 'Playlist Port');
   assert.equal(manifest.start_url, '/');
   assert.equal(manifest.display, 'standalone');
-  assert.equal(manifest.theme_color, '#070a10');
+  assert.equal(manifest.theme_color, '#08090c');
   assert.deepEqual(manifest.icons.map((icon) => icon.sizes), ['192x192', '512x512']);
   for (const icon of manifest.icons) {
     const file = path.join(publicDir, icon.src.replace(/^\//, ''));

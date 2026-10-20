@@ -3,8 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" content="#070a10" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#08090c" />
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('playlist-port.theme');
+          var theme = saved === 'light' || saved === 'dark'
+            ? saved
+            : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+          document.documentElement.dataset.theme = theme;
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', theme === 'light' ? '#f5f6f8' : '#08090c');
+        } catch (error) {}
+      })();
+    </script>
     <meta name="description" content="Copy a Spotify playlist to the same account or another one in a few clicks. Songs, episodes, and their order come with it. Free and Premium accounts supported." />
     <link rel="canonical" href="https://playlist-port-nine.vercel.app/" />
     <meta name="robots" content="index, follow" />
@@ -34,22 +47,24 @@
 
     <title>Playlist Port — Copy Spotify playlists between accounts</title>
     <style>
-      html,body{margin:0;min-height:100%;background:#070a10;color:#f4f7fb;font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif}
-      body{display:grid;place-items:center}
+      :root{--startup-bg:#08090c;--startup-fg:#f5f6f8;--startup-muted:#a8afbc;--startup-accent:#1ed760;--startup-accent-ink:#04140a;--startup-wordmark:#1ed760;color-scheme:dark}
+      :root[data-theme="light"]{--startup-bg:#f5f6f8;--startup-fg:#12151b;--startup-muted:#59616e;--startup-wordmark:#0a7a36;color-scheme:light}
+      html,body{margin:0;min-height:100%;background:var(--startup-bg);color:var(--startup-fg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif}
+      body:has(.startup-panel){display:grid;place-items:center}
       .startup-panel{box-sizing:border-box;max-width:34rem;margin:10vh auto;padding:2rem;text-align:center;line-height:1.65}
       .startup-brand{display:inline-flex;align-items:center;gap:.65rem;margin-bottom:1.25rem;font-weight:700;font-size:1.15rem;letter-spacing:-.02em}
-      .startup-mark{display:grid;place-items:center;width:2.5rem;height:2.5rem;border-radius:.8rem;background:#1ed760;color:#04120a;font-size:1.2rem;font-weight:800}
+      .startup-mark{display:grid;place-items:center;width:2.5rem;height:2.5rem;border-radius:.8rem;background:var(--startup-accent);color:var(--startup-accent-ink);font-size:1.2rem;font-weight:800}
       .startup-panel h1{margin:0 0 .6rem;font-size:2rem;letter-spacing:-.04em}
-      .startup-panel p{margin:.35rem 0;color:#a7b1c2}
-      .startup-panel a{display:inline-block;margin-top:1.35rem;padding:.7rem 1.2rem;border-radius:.65rem;background:#1ed760;color:#04120a;font-weight:700;text-decoration:none}
-      .startup-panel a:focus-visible{outline:2px solid #f4f7fb;outline-offset:3px}
-      .startup-panel noscript p{color:#f6c85f}
+      .startup-panel p{margin:.35rem 0;color:var(--startup-muted)}
+      .startup-panel a{display:inline-block;margin-top:1.35rem;padding:.7rem 1.2rem;border-radius:.65rem;background:var(--startup-accent);color:var(--startup-accent-ink);font-weight:700;text-decoration:none}
+      .startup-panel a:focus-visible{outline:2px solid var(--startup-fg);outline-offset:3px}
+      .startup-panel noscript p{color:#a56c00}
     </style>
   </head>
   <body>
     <div id="root">
       <main class="startup-panel">
-        <span class="startup-brand"><span class="startup-mark" aria-hidden="true">P</span> playlist<span style="color:#1ed760">port</span></span>
+        <span class="startup-brand"><span class="startup-mark" aria-hidden="true">P</span> playlist<span style="color:var(--startup-wordmark)">port</span></span>
         <h1>Move your playlists.</h1>
         <p>Loading the transfer workspace…</p>
         <p>If loading stalls, reload this page or open the link in your browser.</p>
