@@ -817,6 +817,7 @@ export default function App() {
     setResult(null);
     setTransferResults([]);
     setCurrentStep(5);
+    scrollToWorkspace(true);
 
     const completedList = [];
     let hadError = false;
@@ -927,6 +928,15 @@ export default function App() {
   const simulatedActiveProgress = Math.min(activePlaylistItems, Math.round((transferElapsed % 8) * (activePlaylistItems / 8)));
   const tracksProcessedDisplay = Math.min(totalItemsCount, completedTracksSoFar + (transferring ? simulatedActiveProgress : 0));
   const progressPercent = Math.min(98, Math.max(8, Math.round(((activeTransferIndex + (transferElapsed / Math.max(4, estimatedSeconds / Math.max(1, selectedPlaylists.length)))) / Math.max(1, selectedPlaylists.length)) * 100)));
+  const activeTransferStage = !transferring
+    ? (result ? 4 : 1)
+    : progressPercent < 20
+      ? 1
+      : progressPercent < 50
+        ? 2
+        : progressPercent < 85
+          ? 3
+          : 4;
 
   return (
     <div className="page-shell">
@@ -1472,13 +1482,24 @@ export default function App() {
                         </button>
                       )}
                       {selectedIds.length > 0 && (
-                        <button
-                          type="button"
-                          className="btn btn-primary btn-xs summary-continue-btn"
-                          onClick={() => setCurrentStep(3)}
-                        >
-                          Next: Destination ({selectedIds.length}) <FiArrowRight aria-hidden="true" />
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-xs summary-continue-btn"
+                            onClick={handleStartTransfer}
+                            disabled={!readyToCopy || transferring}
+                            title="Copy playlist immediately to your account"
+                          >
+                            <FiCopy aria-hidden="true" /> Copy now ({selectedIds.length})
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-xs"
+                            onClick={() => setCurrentStep(3)}
+                          >
+                            Next <FiArrowRight aria-hidden="true" />
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -1625,14 +1646,24 @@ export default function App() {
                   <button type="button" className="btn btn-secondary" onClick={() => setCurrentStep(1)}>
                     <FiArrowLeft aria-hidden="true" /> Back to source
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={selectedIds.length === 0}
-                    onClick={() => setCurrentStep(3)}
-                  >
-                    Next: Connect destination ({selectedIds.length}) <FiArrowRight aria-hidden="true" />
-                  </button>
+                  <div className="step-actions-group">
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      disabled={selectedIds.length === 0}
+                      onClick={() => setCurrentStep(3)}
+                    >
+                      Choose destination / rename <FiArrowRight aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={selectedIds.length === 0 || !readyToCopy || transferring}
+                      onClick={handleStartTransfer}
+                    >
+                      <FiCopy aria-hidden="true" /> Copy {selectedIds.length === 1 ? 'Playlist' : `${selectedIds.length} Playlists`} Now <FiArrowRight aria-hidden="true" />
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -1921,7 +1952,7 @@ export default function App() {
                     disabled={!readyToCopy || transferring}
                     onClick={handleStartTransfer}
                   >
-                    Start Transfer ({selectedPlaylists.length} {selectedPlaylists.length === 1 ? 'playlist' : 'playlists'}, {totalTracksSelected > 0 ? `${totalTracksSelected} tracks` : 'verified'}) <FiArrowRight aria-hidden="true" />
+                    <FiCopy aria-hidden="true" /> Copy {selectedPlaylists.length === 1 ? 'Playlist' : `${selectedPlaylists.length} Playlists`} ({totalTracksSelected > 0 ? `${totalTracksSelected} tracks` : 'verified'}) <FiArrowRight aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -1942,14 +1973,36 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="transfer-stages-tracker" aria-hidden="true">
-                    <span className="stage-pill stage-done"><FiCheck /> 1. Connect API</span>
-                    <span className="stage-connector active" />
-                    <span className="stage-pill stage-active"><span className="pulse-dot" /> 2. Read Tracks</span>
-                    <span className="stage-connector active" />
-                    <span className="stage-pill stage-active"><span className="pulse-dot" /> 3. Batch Write</span>
-                    <span className="stage-connector" />
-                    <span className="stage-pill stage-upcoming">4. Verify Order</span>
+                  <div className="transfer-stages-tracker" aria-label="Transfer pipeline stages">
+                    <div className={`stage-pill ${activeTransferStage > 1 ? 'stage-done' : activeTransferStage === 1 ? 'stage-active' : 'stage-upcoming'}`}>
+                      {activeTransferStage > 1 ? <FiCheck aria-hidden="true" /> : <span className="pulse-dot" aria-hidden="true" />}
+                      <span>1. Connect API</span>
+                    </div>
+                    <span className={`stage-connector ${activeTransferStage > 1 ? 'active' : ''}`} aria-hidden="true" />
+                    <div className={`stage-pill ${activeTransferStage > 2 ? 'stage-done' : activeTransferStage === 2 ? 'stage-active' : 'stage-upcoming'}`}>
+                      {activeTransferStage > 2 ? <FiCheck aria-hidden="true" /> : activeTransferStage === 2 ? <span className="pulse-dot" aria-hidden="true" /> : null}
+                      <span>2. Read Tracks</span>
+                    </div>
+                    <span className={`stage-connector ${activeTransferStage > 2 ? 'active' : ''}`} aria-hidden="true" />
+                    <div className={`stage-pill ${activeTransferStage > 3 ? 'stage-done' : activeTransferStage === 3 ? 'stage-active' : 'stage-upcoming'}`}>
+                      {activeTransferStage > 3 ? <FiCheck aria-hidden="true" /> : activeTransferStage === 3 ? <span className="pulse-dot" aria-hidden="true" /> : null}
+                      <span>3. Batch Write</span>
+                    </div>
+                    <span className={`stage-connector ${activeTransferStage > 3 ? 'active' : ''}`} aria-hidden="true" />
+                    <div className={`stage-pill ${activeTransferStage === 4 ? 'stage-active' : activeTransferStage > 4 ? 'stage-done' : 'stage-upcoming'}`}>
+                      {activeTransferStage === 4 ? <span className="pulse-dot" aria-hidden="true" /> : null}
+                      <span>4. Verify Order</span>
+                    </div>
+                  </div>
+
+                  <div className="transfer-current-status-banner">
+                    <span className="status-indicator-dot" aria-hidden="true" />
+                    <span>
+                      {activeTransferStage === 1 && 'Connecting to Spotify Web API securely...'}
+                      {activeTransferStage === 2 && `Reading tracklist from “${selectedPlaylists[activeTransferIndex]?.name || primarySelected?.name}”...`}
+                      {activeTransferStage === 3 && `Writing items in 100-track batches to destination account (${tracksProcessedDisplay} of ${totalItemsCount} tracks)...`}
+                      {activeTransferStage === 4 && 'Verifying destination playlist order, track IDs, and completeness...'}
+                    </span>
                   </div>
 
                   <div className="transfer-progress-box">
