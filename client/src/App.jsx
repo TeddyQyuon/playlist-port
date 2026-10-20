@@ -71,18 +71,27 @@ function StepHeading({ number, title, description, id }) {
 
 function Stepper({ currentStep }) {
   return (
-    <ol className="stepper" aria-label="Transfer progress">
-      {steps.map((label, index) => {
-        const number = index + 1;
-        const state = number < currentStep ? 'done' : number === currentStep ? 'current' : 'upcoming';
-        return (
-          <li key={label} className={state} aria-current={state === 'current' ? 'step' : undefined}>
-            <span className="step-marker" aria-hidden="true">{state === 'done' ? <FiCheck /> : number}</span>
-            <span>{label}{state === 'done' && <span className="sr-only"> (completed)</span>}</span>
-          </li>
-        );
-      })}
-    </ol>
+    <>
+      <ol className="stepper" aria-label="Transfer progress">
+        {steps.map((label, index) => {
+          const number = index + 1;
+          const state = number < currentStep ? 'done' : number === currentStep ? 'current' : 'upcoming';
+          return (
+            <li key={label} className={state} aria-current={state === 'current' ? 'step' : undefined}>
+              <span className="step-marker" aria-hidden="true">{state === 'done' ? <FiCheck /> : number}</span>
+              <span>{label}{state === 'done' && <span className="sr-only"> (completed)</span>}</span>
+            </li>
+          );
+        })}
+      </ol>
+      <div className="stepper-compact">
+        <span className="stepper-compact-label">Step {currentStep} of {steps.length}</span>
+        <strong>{steps[currentStep - 1]}</strong>
+        <span className="stepper-compact-track" aria-hidden="true">
+          <i style={{ width: `${(currentStep / steps.length) * 100}%` }} />
+        </span>
+      </div>
+    </>
   );
 }
 
@@ -616,6 +625,9 @@ export default function App() {
               </button>
               <a className="btn btn-secondary btn-lg" href="#how-it-works">See how it works</a>
             </div>
+            {!session.source && session.configured && (
+              <p className="hero-permission"><FiLock aria-hidden="true" /> Spotify will ask you to read playlists and create a private copy. No playback control.</p>
+            )}
             <ul className="trust-list">
               <li><FiCheck aria-hidden="true" /> Free &amp; Premium accounts</li>
               <li><FiCheck aria-hidden="true" /> Originals never change</li>
@@ -681,7 +693,7 @@ export default function App() {
         <section className="proof-strip" aria-label="Playlist Port at a glance">
           <div className="proof-inner content-width">
             <div><strong>Order</strong><span>Every copied item keeps its place</span></div>
-            <div><strong>24h</strong><span>Encrypted session lifetime</span></div>
+            <div><strong>Private</strong><span>Copies start hidden from your profile</span></div>
             <div><strong>0</strong><span>Playlists stored on our servers</span></div>
             <div><strong>Free</strong><span>For Free &amp; Premium Spotify accounts</span></div>
           </div>
@@ -1031,7 +1043,7 @@ export default function App() {
                         {selectedIsEmpty ? 'Playlist is empty' : nameMissing ? 'Enter a playlist name' : <>Copy playlist <FiArrowRight aria-hidden="true" /></>}
                       </button>
                     )}
-                    <p className="summary-footnote"><FiShield aria-hidden="true" /> Original playlist stays untouched · No audio is copied</p>
+                    <p className="summary-footnote"><FiShield aria-hidden="true" /> Original untouched · Order verified · No audio copied</p>
                   </form>
                 </aside>
               </div>
@@ -1114,20 +1126,28 @@ export default function App() {
               <p>No. Playlist Port only reads the source playlist. It creates a brand-new playlist in the destination account and never deletes or edits the original.</p>
             </details>
             <details>
+              <summary>How long does a copy take?<span className="faq-icon" aria-hidden="true"><FiPlus /></span></summary>
+              <p>Most playlists finish in seconds. Very large playlists can take a minute or two, and Spotify occasionally takes longer. Keep this tab open — the progress panel shows the current stage and elapsed time.</p>
+            </details>
+            <details>
+              <summary>Can I copy a playlist I do not own?<span className="faq-icon" aria-hidden="true"><FiPlus /></span></summary>
+              <p>Yes. Paste a public Spotify playlist link into the search box in the workspace. Private playlists from other accounts cannot be read through Spotify's API, so the owner would need to make the playlist public first.</p>
+            </details>
+            <details>
               <summary>What happens to local files and unavailable tracks?<span className="faq-icon" aria-hidden="true"><FiPlus /></span></summary>
               <p>Spotify does not allow those items to be copied through its API. They are counted as skipped, and every available song or episode around them is still copied in order.</p>
             </details>
             <details>
               <summary>Who can see the new playlist?<span className="faq-icon" aria-hidden="true"><FiPlus /></span></summary>
-              <p>The new playlist is created as private, so it does not appear on your public profile or in search. Anyone with the link can open it until you choose <strong>Make private</strong> in Spotify.</p>
+              <p>The copy is created private, so it does not appear on your public profile or in Spotify search. Anyone with the link can still open it, so share it only with people you trust.</p>
             </details>
             <details>
               <summary>Where is my Spotify data stored?<span className="faq-icon" aria-hidden="true"><FiPlus /></span></summary>
               <p>Playlist Port does not keep a database. Spotify tokens live in encrypted, HttpOnly cookies that expire after 24 hours. You can disconnect either account at any time from the workspace.</p>
             </details>
             <details>
-              <summary>Why do both accounts need access during testing?<span className="faq-icon" aria-hidden="true"><FiPlus /></span></summary>
-              <p>Spotify Development Mode limits a new app to an allowlist of users. The site owner must approve both accounts in the Spotify Developer Dashboard before they can connect.</p>
+              <summary>Why do both accounts need to be approved?<span className="faq-icon" aria-hidden="true"><FiPlus /></span></summary>
+              <p>This app runs in Spotify's Development Mode, which limits access to an allowlist of accounts. Both the source and destination accounts must be approved in the Spotify Developer Dashboard before they can connect.</p>
             </details>
           </div>
         </section>
