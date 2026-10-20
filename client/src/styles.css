@@ -442,6 +442,28 @@ img {
   margin-top: 28px;
 }
 
+.hero-permission {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  max-width: 52ch;
+  margin: 16px 0 0;
+  color: var(--text-3);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.hero-permission svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--green);
+  font-size: 14px;
+}
+
+.hero-permission + .trust-list {
+  margin-top: 14px;
+}
+
 .trust-list {
   display: flex;
   flex-wrap: wrap;
@@ -959,6 +981,10 @@ img {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.stepper-compact {
+  display: none;
 }
 
 .stepper li {
@@ -3154,13 +3180,49 @@ img {
   }
 
   .stepper {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    max-width: none;
+    display: none;
   }
 
-  .stepper li {
-    padding: 7px;
-    font-size: 10.5px;
+  .stepper-compact {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px 12px;
+    flex: 1;
+  }
+
+  .stepper-compact-label {
+    color: #8ff0b3;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .stepper-compact strong {
+    overflow: hidden;
+    color: var(--text);
+    font-size: 12.5px;
+    font-weight: 650;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .stepper-compact-track {
+    grid-column: 1 / -1;
+    height: 4px;
+    overflow: hidden;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, 0.07);
+  }
+
+  .stepper-compact-track i {
+    display: block;
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #60a5fa, var(--green));
+    transition: width 0.3s ease;
   }
 
   .connection-pill {
