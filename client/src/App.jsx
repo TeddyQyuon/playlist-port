@@ -522,24 +522,40 @@ export default function App() {
             </ul>
           </div>
 
-          <div className="hero-visual" aria-hidden="true">
-            <div className="preview-card">
+          <div className="hero-visual">
+            <div className="preview-card preview-live">
               <div className="preview-head">
-                <span className="preview-title"><span className="status-dot" /> PLAYLIST TRANSFER</span>
-                <span className="preview-lock"><FiLock /> Private</span>
+                <span className="preview-title"><span className="status-dot" aria-hidden="true" /> {session.source ? 'Workspace ready' : 'Start a transfer'}</span>
+                <span className="preview-lock"><FiLock aria-hidden="true" /> Private</span>
               </div>
               <div className="preview-route">
                 <div className="preview-account">
-                  <span className="preview-avatar"><SiSpotify /></span>
-                  <span><small>SOURCE</small><strong>Spotify account</strong></span>
+                  <span className="preview-avatar"><SiSpotify aria-hidden="true" /></span>
+                  <span>
+                    <small>FROM</small>
+                    <strong>{session.source?.name || 'Spotify account'}</strong>
+                    <em>{session.source ? 'Connected' : 'Not connected'}</em>
+                  </span>
                 </div>
-                <span className="preview-arrow"><FiArrowRight /></span>
+                <span className="preview-arrow" aria-hidden="true"><FiArrowRight /></span>
                 <div className="preview-account">
-                  <span className="preview-avatar preview-avatar-alt"><SiSpotify /></span>
-                  <span><small>DESTINATION</small><strong>New playlist</strong></span>
+                  <span className="preview-avatar preview-avatar-alt"><SiSpotify aria-hidden="true" /></span>
+                  <span>
+                    <small>TO</small>
+                    <strong className="truncate">{useSecondAccount ? (session.destination?.name || 'Second account') : 'New private playlist'}</strong>
+                    <em>{useSecondAccount ? (session.destination ? 'Connected' : 'Not connected') : 'Same Spotify account'}</em>
+                  </span>
                 </div>
               </div>
-              <div className="preview-list">
+              <div className="preview-selected">
+                <span className="preview-selected-icon" aria-hidden="true"><FiMusic /></span>
+                <span className="preview-selected-copy">
+                  <small>PLAYLIST</small>
+                  <strong className="truncate">{selected?.name || 'Choose a playlist in the workspace'}</strong>
+                </span>
+                <span className="preview-count">{selected ? (selected.count != null ? `${selected.count} ${selected.count === 1 ? 'item' : 'items'}` : 'Selected') : 'Not chosen'}</span>
+              </div>
+              <div className="preview-list" aria-hidden="true">
                 {[0, 1, 2].map((item) => (
                   <div className="preview-item" key={item}>
                     <span className={`preview-art art-${item}`} />
@@ -549,11 +565,24 @@ export default function App() {
                 ))}
               </div>
               <div className="preview-footer">
-                <span><FiCheckCircle /> Order preserved</span>
-                <span><FiShield /> Verified copy</span>
+                <span><FiCheckCircle aria-hidden="true" /> Order preserved</span>
+                <span><FiShield aria-hidden="true" /> Verified copy</span>
               </div>
+              <button type="button" className="btn btn-primary btn-block preview-cta" onClick={startFlow} disabled={sessionLoading}>
+                {heroPrimary} <FiArrowRight aria-hidden="true" />
+              </button>
+              <p className="preview-note"><FiShield aria-hidden="true" /> Official Spotify API · encrypted sessions · no database</p>
             </div>
-            <div className="preview-badge"><FiCheckCircle /> Ready to port</div>
+            <div className="preview-badge"><FiCheckCircle aria-hidden="true" /> Ready to port</div>
+          </div>
+        </section>
+
+        <section className="proof-strip" aria-label="Playlist Port at a glance">
+          <div className="proof-inner content-width">
+            <div><strong>Order</strong><span>Every copied item keeps its place</span></div>
+            <div><strong>24h</strong><span>Encrypted session lifetime</span></div>
+            <div><strong>0</strong><span>Playlists stored on our servers</span></div>
+            <div><strong>Free</strong><span>For Free &amp; Premium Spotify accounts</span></div>
           </div>
         </section>
 
@@ -898,22 +927,23 @@ export default function App() {
           </div>
         </section>
 
-        <section className="support-section content-width" aria-labelledby="support-title">
-          <div className="support-card">
-            <div>
-              <span className="kicker">SERVICE ROADMAP</span>
-              <h2 id="support-title">Spotify today. More ports coming.</h2>
-              <p>Playlist Port currently copies between Spotify accounts. Apple Music, YouTube Music, Deezer, and TIDAL are next.</p>
-            </div>
-            <ul className="support-list">
-              {services.map(({ name, Icon, ready }) => (
-                <li key={name} className={ready ? 'is-ready' : ''}>
-                  <span className="support-icon"><Icon aria-hidden="true" /></span>
-                  <span><strong>{name}</strong><small>{ready ? 'Available now' : 'Coming soon'}</small></span>
-                </li>
-              ))}
-            </ul>
+        <section className="services-section content-width" aria-labelledby="services-title">
+          <div className="section-heading section-heading-centered">
+            <span className="kicker">WORKS WITH</span>
+            <h2 id="services-title">Spotify today. More services next.</h2>
+            <p>Playlist Port is built specifically for Spotify. Apple Music, YouTube Music, YouTube, Deezer, and TIDAL are on the roadmap.</p>
           </div>
+          <ul className="service-grid">
+            {services.map(({ name, Icon, ready }) => (
+              <li key={name} className={`service-tile ${ready ? 'is-ready' : ''}`}>
+                {ready && <span className="service-flag"><FiCheck aria-hidden="true" /> Live</span>}
+                <span className="service-logo"><Icon aria-hidden="true" /></span>
+                <strong>{name}</strong>
+                <span className="service-status">{ready ? 'Available now' : 'Coming soon'}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="services-note"><FiInfo aria-hidden="true" /> Transfers currently run between Spotify accounts only. New services will appear here when they ship.</p>
         </section>
 
         <section className="how-section content-width" id="how-it-works" aria-labelledby="how-title">
@@ -924,22 +954,27 @@ export default function App() {
           </div>
           <div className="how-grid">
             <article className="how-card">
-              <div className="how-card-top"><span className="how-icon"><FiLink2 aria-hidden="true" /></span><span className="how-index">01</span></div>
+              <div className="how-card-top"><span className="how-icon"><FiLink2 aria-hidden="true" /></span><span className="how-index">STEP 01</span></div>
               <h3>Connect Spotify</h3>
               <p>Approve playlist access so Playlist Port can read the source and create a private copy for the destination.</p>
             </article>
             <article className="how-card">
-              <div className="how-card-top"><span className="how-icon"><FiMusic aria-hidden="true" /></span><span className="how-index">02</span></div>
+              <div className="how-card-top"><span className="how-icon"><FiMusic aria-hidden="true" /></span><span className="how-index">STEP 02</span></div>
               <h3>Pick a playlist</h3>
               <p>Choose something you own or follow, grab your Liked Songs, or paste a public Spotify playlist link.</p>
             </article>
             <article className="how-card">
-              <div className="how-card-top"><span className="how-icon"><FiCopy aria-hidden="true" /></span><span className="how-index">03</span></div>
+              <div className="how-card-top"><span className="how-icon"><FiCopy aria-hidden="true" /></span><span className="how-index">STEP 03</span></div>
               <h3>Copy and go</h3>
               <p>Every available song and episode is copied in its original order, then verified before we show the link.</p>
             </article>
           </div>
           <p className="how-note"><FiInfo aria-hidden="true" /> Local files and unavailable items cannot be copied. They are counted as skipped and never break the rest of the transfer.</p>
+          <div className="how-cta">
+            <button type="button" className="btn btn-primary" onClick={startFlow} disabled={sessionLoading}>
+              {session.source ? 'Open your workspace' : 'Start with Spotify'} <FiArrowRight aria-hidden="true" />
+            </button>
+          </div>
         </section>
 
         <section className="faq-section content-width" id="faq" aria-labelledby="faq-title">
@@ -976,6 +1011,7 @@ export default function App() {
           <div>
             <span className="kicker">READY WHEN YOU ARE</span>
             <h2 id="cta-title">Your next playlist is a copy away.</h2>
+            <p className="final-cta-note"><FiLock aria-hidden="true" /> Private copy by default · Free &amp; Premium Spotify accounts · Originals never change</p>
           </div>
           <button type="button" className="btn btn-primary btn-lg" onClick={startFlow} disabled={sessionLoading}>
             {session.source ? 'Open your workspace' : 'Connect Spotify'} <FiArrowRight aria-hidden="true" />
