@@ -260,8 +260,11 @@ img {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  min-height: 42px;
+  padding: 0 16px;
   border: 1px solid transparent;
   border-radius: 9px;
+  font-size: 13px;
   font-weight: 650;
   line-height: 1;
   text-decoration: none;
