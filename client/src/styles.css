@@ -4382,10 +4382,56 @@ img {
   color: #ffffff;
 }
 
-/* Responsive adjustments for guided stepper */
+/* Responsive adjustments for guided stepper across all devices */
 @media (max-width: 900px) {
   .guided-stepper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin: 0;
+    padding: 6px 0 10px;
+    gap: 4px;
+  }
+
+  .stepper-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    gap: 4px;
+    position: relative;
+  }
+
+  .stepper-item .step-label {
     display: none;
+  }
+
+  .stepper-button,
+  .stepper-static {
+    padding: 0;
+    min-height: 38px;
+    min-width: 38px;
+    display: grid;
+    place-items: center;
+    background: transparent;
+    border-radius: 50%;
+  }
+
+  .stepper-item .step-marker {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+    min-width: 32px;
+    min-height: 32px;
+    flex: none;
+  }
+
+  .stepper-connector {
+    flex: 1;
+    min-width: 6px;
+    height: 2px;
+    margin-inline: 2px;
   }
 
   .stepper-compact {
@@ -4393,6 +4439,9 @@ img {
     flex-direction: column;
     gap: 8px;
     width: 100%;
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border);
   }
 
   .stepper-compact-meta {
@@ -4438,6 +4487,50 @@ img {
 
   .step-actions .btn {
     width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .guided-stepper {
+    gap: 2px;
+    padding: 4px 0 8px;
+  }
+
+  .stepper-button,
+  .stepper-static {
+    min-height: 30px;
+    min-width: 30px;
+  }
+
+  .stepper-item .step-marker {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+    min-width: 28px;
+    min-height: 28px;
+  }
+
+  .stepper-connector {
+    min-width: 3px;
+    margin-inline: 1px;
+  }
+
+  .stepper-compact-title {
+    font-size: 12.5px;
+  }
+}
+
+@media (max-width: 360px) {
+  .stepper-item .step-marker {
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
+    min-width: 24px;
+    min-height: 24px;
+  }
+
+  .stepper-connector {
+    min-width: 2px;
   }
 }
 
@@ -5365,6 +5458,28 @@ img {
 
   .step-actions-group .btn {
     width: 100%;
+  }
+
+  .selection-summary-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .selection-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .selection-actions .btn {
+    flex: 1 1 auto;
+    min-height: 38px;
+    justify-content: center;
   }
 }
 

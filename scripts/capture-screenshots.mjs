@@ -14,14 +14,16 @@ if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 const server = http.createServer(app).listen(3099, '127.0.0.1', async () => {
   console.log('Server started on 3099');
   const viewports = [
+    { name: `${prefix}_mobile_320px.png`, width: 320, height: 600, dark: false },
     { name: `${prefix}_mobile_375px.png`, width: 375, height: 812, dark: false },
     { name: `${prefix}_mobile_375px_dark.png`, width: 375, height: 812, dark: true },
-    { name: `${prefix}_fullpage_375px.png`, width: 375, height: 2600, dark: false },
+    { name: `${prefix}_mobile_412px.png`, width: 412, height: 915, dark: false },
     { name: `${prefix}_tablet_768px.png`, width: 768, height: 1024, dark: false },
+    { name: `${prefix}_tablet_1024px.png`, width: 1024, height: 768, dark: false },
     { name: `${prefix}_desktop_1280px.png`, width: 1280, height: 800, dark: false },
     { name: `${prefix}_desktop_1280px_dark.png`, width: 1280, height: 800, dark: true },
-    { name: `${prefix}_fullpage_1280px.png`, width: 1280, height: 2200, dark: false },
-    { name: `${prefix}_fullpage_1280px_dark.png`, width: 1280, height: 2200, dark: true }
+    { name: `${prefix}_fullpage_375px.png`, width: 375, height: 2600, dark: false },
+    { name: `${prefix}_fullpage_1280px.png`, width: 1280, height: 2200, dark: false }
   ];
 
   for (const vp of viewports) {
