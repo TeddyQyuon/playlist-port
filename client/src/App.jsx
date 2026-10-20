@@ -18,19 +18,19 @@ const STEP_LABELS = [
 ];
 
 const SOURCE_SERVICES = [
-  { id: 'spotify', name: 'Spotify', Icon: SiSpotify, ready: true, description: 'Direct OAuth 2.0 with Spotify API' },
-  { id: 'applemusic', name: 'Apple Music', Icon: SiApplemusic, ready: false, badge: 'Coming soon', description: 'MusicKit library sync' },
-  { id: 'youtubemusic', name: 'YouTube Music', Icon: SiYoutubemusic, ready: false, badge: 'Coming soon', description: 'YouTube Data API transfer' },
-  { id: 'tidal', name: 'TIDAL', Icon: SiTidal, ready: false, badge: 'Roadmap', description: 'Lossless catalog matching' },
-  { id: 'deezer', name: 'Deezer', Icon: SiDeezer, ready: false, badge: 'Roadmap', description: 'Deezer Connect integration' }
+  { id: 'spotify', name: 'Spotify', Icon: SiSpotify, ready: true, description: 'Direct OAuth 2.0 with Spotify API', color: '#1ed760' },
+  { id: 'applemusic', name: 'Apple Music', Icon: SiApplemusic, ready: false, badge: 'Coming soon', description: 'MusicKit library sync', color: '#fa2d48' },
+  { id: 'youtubemusic', name: 'YouTube Music', Icon: SiYoutubemusic, ready: false, badge: 'Coming soon', description: 'YouTube Data API transfer', color: '#ff0000' },
+  { id: 'tidal', name: 'TIDAL', Icon: SiTidal, ready: false, badge: 'Roadmap', description: 'Lossless catalog matching', color: '#00e5ff' },
+  { id: 'deezer', name: 'Deezer', Icon: SiDeezer, ready: false, badge: 'Roadmap', description: 'Deezer Connect integration', color: '#a238ff' }
 ];
 
 const DESTINATION_SERVICES = [
-  { id: 'spotify', name: 'Spotify', Icon: SiSpotify, ready: true, description: 'Direct OAuth 2.0 with Spotify API' },
-  { id: 'applemusic', name: 'Apple Music', Icon: SiApplemusic, ready: false, badge: 'Coming soon', description: 'Export directly to Apple Music library' },
-  { id: 'youtubemusic', name: 'YouTube Music', Icon: SiYoutubemusic, ready: false, badge: 'Coming soon', description: 'Create playlist on YouTube Music' },
-  { id: 'tidal', name: 'TIDAL', Icon: SiTidal, ready: false, badge: 'Roadmap', description: 'Export to TIDAL collection' },
-  { id: 'deezer', name: 'Deezer', Icon: SiDeezer, ready: false, badge: 'Roadmap', description: 'Sync to Deezer library' }
+  { id: 'spotify', name: 'Spotify', Icon: SiSpotify, ready: true, description: 'Direct OAuth 2.0 with Spotify API', color: '#1ed760' },
+  { id: 'applemusic', name: 'Apple Music', Icon: SiApplemusic, ready: false, badge: 'Coming soon', description: 'Export directly to Apple Music library', color: '#fa2d48' },
+  { id: 'youtubemusic', name: 'YouTube Music', Icon: SiYoutubemusic, ready: false, badge: 'Coming soon', description: 'Create playlist on YouTube Music', color: '#ff0000' },
+  { id: 'tidal', name: 'TIDAL', Icon: SiTidal, ready: false, badge: 'Roadmap', description: 'Export to TIDAL collection', color: '#00e5ff' },
+  { id: 'deezer', name: 'Deezer', Icon: SiDeezer, ready: false, badge: 'Roadmap', description: 'Sync to Deezer library', color: '#a238ff' }
 ];
 
 const filters = [
@@ -234,6 +234,164 @@ function downloadCsvReport(result, destinationName, acceptedMatches = {}) {
   link.remove();
 }
 
+function RoadmapModal({ service, onClose, onConnectSpotify }) {
+  const modalRef = useRef(null);
+
+  useEffect(() => {
+    if (service) {
+      modalRef.current?.focus();
+      const onKeyDown = (e) => { if (e.key === 'Escape') onClose(); };
+      window.addEventListener('keydown', onKeyDown);
+      return () => window.removeEventListener('keydown', onKeyDown);
+    }
+  }, [service, onClose]);
+
+  if (!service) return null;
+
+  return (
+    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="roadmap-title">
+      <div className="modal-dialog roadmap-modal" ref={modalRef} tabIndex={-1}>
+        <div className="modal-header">
+          <span className="roadmap-service-icon" style={{ color: service.color || 'var(--accent)' }}>
+            <service.Icon aria-hidden="true" />
+          </span>
+          <div className="roadmap-title-wrap">
+            <span className="service-badge">{service.badge || 'Roadmap'}</span>
+            <h3 id="roadmap-title">{service.name} integration</h3>
+          </div>
+          <button type="button" className="icon-button modal-close-btn" onClick={onClose} aria-label="Close dialog">
+            <FiX aria-hidden="true" />
+          </button>
+        </div>
+        <p className="modal-text">
+          Direct integration with <strong>{service.name}</strong> ({service.description}) is currently in development. Full catalog matching and playlist syncing will be supported in an upcoming release.
+        </p>
+        <div className="roadmap-highlight-box">
+          <FiInfo aria-hidden="true" />
+          <span>Spotify transfers (Free &amp; Premium, single or cross-account) are <strong>live and verified right now</strong>.</span>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
+            Close
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              onClose();
+              onConnectSpotify();
+            }}
+          >
+            <SiSpotify aria-hidden="true" /> Continue with Spotify
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TrackPreviewModal({ playlist, onClose, onToggleSelect, isSelected }) {
+  const modalRef = useRef(null);
+
+  useEffect(() => {
+    if (playlist) {
+      modalRef.current?.focus();
+      const onKeyDown = (e) => { if (e.key === 'Escape') onClose(); };
+      window.addEventListener('keydown', onKeyDown);
+      return () => window.removeEventListener('keydown', onKeyDown);
+    }
+  }, [playlist, onClose]);
+
+  if (!playlist) return null;
+
+  return (
+    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="track-preview-title">
+      <div className="modal-dialog track-preview-modal" ref={modalRef} tabIndex={-1}>
+        <div className="modal-header">
+          <PlaylistArt playlist={playlist} className="preview-modal-art" />
+          <div className="preview-modal-title-wrap">
+            <span className="service-badge">Spotify Playlist</span>
+            <h3 id="track-preview-title">{playlist.name}</h3>
+            <span className="preview-modal-owner">
+              by {playlist.owner} · {playlist.count != null ? `${playlist.count} tracks` : 'Tracks verified during transfer'}
+            </span>
+          </div>
+          <button type="button" className="icon-button modal-close-btn" onClick={onClose} aria-label="Close dialog">
+            <FiX aria-hidden="true" />
+          </button>
+        </div>
+        <div className="track-preview-body">
+          <div className="preview-metrics-grid">
+            <div className="preview-metric-box">
+              <span className="metric-num">{playlist.count ?? 'Full'}</span>
+              <span className="metric-label">Items to copy</span>
+            </div>
+            <div className="preview-metric-box">
+              <span className="metric-num">{playlist.isOwner ? 'Your playlist' : 'Followed'}</span>
+              <span className="metric-label">Access type</span>
+            </div>
+            <div className="preview-metric-box">
+              <span className="metric-num">Verified</span>
+              <span className="metric-label">Track ordering</span>
+            </div>
+          </div>
+          <div className="preview-guarantee-note">
+            <FiShield aria-hidden="true" />
+            <span>
+              All available tracks, metadata, and sequential order will be copied into your destination account. The original Spotify playlist stays 100% untouched.
+            </span>
+          </div>
+          {playlist.url && (
+            <a href={playlist.url} target="_blank" rel="noreferrer" className="preview-spotify-link">
+              <SiSpotify aria-hidden="true" /> Open playlist in Spotify <FiExternalLink aria-hidden="true" />
+            </a>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
+            Close
+          </button>
+          <button
+            type="button"
+            className={`btn ${isSelected ? 'btn-secondary' : 'btn-primary'}`}
+            onClick={() => {
+              onToggleSelect();
+              onClose();
+            }}
+          >
+            {isSelected ? 'Remove from Selection' : 'Select for Transfer'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Toast({ toast, onClose }) {
+  if (!toast || !toast.visible) return null;
+  return (
+    <div className={`toast toast-${toast.type || 'success'}`} role="status" aria-live="polite">
+      <FiCheckCircle aria-hidden="true" />
+      <span>{toast.message}</span>
+      <button type="button" className="toast-close" onClick={onClose} aria-label="Dismiss notification">
+        <FiX aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
+function AnimatedEqualizer() {
+  return (
+    <div className="audio-equalizer" aria-hidden="true">
+      <span className="eq-bar eq-bar-1" />
+      <span className="eq-bar eq-bar-2" />
+      <span className="eq-bar eq-bar-3" />
+      <span className="eq-bar eq-bar-4" />
+      <span className="eq-bar eq-bar-5" />
+    </div>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState({ configured: false, source: null, destination: null });
   const [sessionLoading, setSessionLoading] = useState(true);
@@ -246,6 +404,10 @@ export default function App() {
     const saved = readSessionItem('playlist-port.selected');
     return saved ? [saved] : [];
   });
+  const [roadmapService, setRoadmapService] = useState(null);
+  const [previewModalPlaylist, setPreviewModalPlaylist] = useState(null);
+  const [heroUrlInput, setHeroUrlInput] = useState('');
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
   const [newName, setNewName] = useState(() => readSessionItem('playlist-port.name'));
   const [urlLoading, setUrlLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
@@ -294,10 +456,16 @@ export default function App() {
     ? (session.destination?.name || 'Second account')
     : (session.source?.name || 'This account');
 
+  const availableFilters = [
+    ...filters,
+    ...(selectedIds.length > 0 ? [{ id: 'selected', label: 'Selected' }] : [])
+  ];
+
   const mineCount = playlists.filter((p) => p.isOwner).length;
   const followedCount = playlists.filter((p) => !p.isOwner).length;
   const query = playlistQuery.trim().toLowerCase();
   const filteredByTab = playlists.filter((p) => {
+    if (activeTab === 'selected') return selectedIds.includes(p.id);
     if (activeTab === 'mine') return p.isOwner;
     if (activeTab === 'followed') return !p.isOwner;
     return true;
@@ -311,7 +479,9 @@ export default function App() {
     });
 
   const isPastedSpotifyUrl = /(?:playlist\/|playlist:)[A-Za-z0-9_-]{1,64}/.test(playlistQuery.trim());
-  const likedVisible = activeTab !== 'followed' && (!query || 'liked songs'.includes(query));
+  const likedVisible = activeTab === 'selected'
+    ? selectedIds.includes('liked-songs')
+    : activeTab !== 'followed' && (!query || 'liked songs'.includes(query));
   const loadedSuffix = nextOffset !== null ? '+' : '';
   const nameMissing = Boolean(primarySelected) && !newName.trim();
   const readyToCopy = session.configured && session.source && primarySelected && primarySelected.count !== 0 && newName.trim() && !sameDestination && (!useSecondAccount || session.destination);
@@ -584,6 +754,11 @@ export default function App() {
     }
   }
 
+  function showToast(message, type = 'success') {
+    setToast({ visible: true, message, type });
+    setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 3200);
+  }
+
   function chooseDestination(second) {
     setUseSecondAccount(second);
     writeSessionItem('playlist-port.second', String(second));
@@ -600,6 +775,7 @@ export default function App() {
       if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
       await navigator.clipboard.writeText(url);
       announceCopy('copied');
+      showToast('Playlist link copied to clipboard!');
     } catch {
       try {
         const area = document.createElement('textarea');
@@ -612,8 +788,10 @@ export default function App() {
         document.execCommand('copy');
         area.remove();
         announceCopy('copied');
+        showToast('Playlist link copied to clipboard!');
       } catch {
         announceCopy('failed');
+        showToast('Could not copy link to clipboard.', 'error');
       }
     }
   }
@@ -798,16 +976,43 @@ export default function App() {
             <div className="hero-actions">
               <button
                 type="button"
-                className="btn btn-primary btn-lg"
+                className="btn btn-primary btn-lg hero-start-btn"
                 onClick={() => {
                   if (!session.source) connect('source');
                   else scrollToWorkspace(true);
                 }}
-                disabled={sessionLoading}
               >
-                {sessionLoading ? 'Loading Spotify…' : session.source ? 'Open your workspace' : 'Connect Spotify'} <FiArrowRight aria-hidden="true" />
+                {session.source ? 'Open your workspace' : 'Connect Spotify'} <FiArrowRight aria-hidden="true" />
               </button>
               <a className="btn btn-secondary btn-lg" href="#how-it-works">See how it works</a>
+            </div>
+
+            <div className="hero-quick-transfer">
+              <span className="hero-quick-label">Or paste a Spotify playlist link directly:</span>
+              <form
+                className="hero-quick-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!heroUrlInput.trim()) return;
+                  setPlaylistQuery(heroUrlInput.trim());
+                  scrollToWorkspace(true);
+                  if (session.source) {
+                    setCurrentStep(2);
+                  }
+                }}
+              >
+                <FiLink2 aria-hidden="true" />
+                <input
+                  type="text"
+                  value={heroUrlInput}
+                  onChange={(e) => setHeroUrlInput(e.target.value)}
+                  placeholder="https://open.spotify.com/playlist/..."
+                  aria-label="Paste Spotify playlist URL"
+                />
+                <button type="submit" className="btn btn-primary btn-sm">
+                  Transfer <FiArrowRight aria-hidden="true" />
+                </button>
+              </form>
             </div>
             {!session.source && session.configured && (
               <p className="hero-permission"><FiLock aria-hidden="true" /> Spotify will ask you to read playlists and create a private copy. No playback control.</p>
@@ -853,18 +1058,48 @@ export default function App() {
                 <span className="preview-count">{primarySelected ? (primarySelected.count != null ? `${primarySelected.count} ${primarySelected.count === 1 ? 'item' : 'items'}` : 'Selected') : 'Not chosen'}</span>
               </div>
               <div className="preview-list" aria-hidden="true">
-                {[0, 1, 2].map((item) => (
-                  <div className="preview-item" key={item}>
-                    <span className={`preview-art art-${item}`} />
-                    <span className="preview-lines"><i /><i /></span>
-                    <FiCheck />
-                  </div>
-                ))}
+                {selectedPlaylists.length > 0 ? (
+                  selectedPlaylists.slice(0, 3).map((pl, item) => (
+                    <div className="preview-item preview-item-active" key={pl.id}>
+                      <PlaylistArt playlist={pl} className={`preview-art art-${item}`} />
+                      <span className="preview-lines">
+                        <strong className="truncate">{pl.name}</strong>
+                        <small>{pl.count != null ? `${pl.count} tracks` : 'Verified items'}</small>
+                      </span>
+                      <FiCheck />
+                    </div>
+                  ))
+                ) : (
+                  [
+                    { title: 'Top Hits & Favorites', sub: 'Verified in exact order' },
+                    { title: 'Liked Songs Collection', sub: 'All saved tracks preserved' },
+                    { title: 'Summer Roadtrip Mix', sub: 'Source remains untouched' }
+                  ].map((track, item) => (
+                    <div className="preview-item" key={track.title}>
+                      <span className={`preview-art art-${item}`} />
+                      <span className="preview-lines">
+                        <strong>{track.title}</strong>
+                        <small>{track.sub}</small>
+                      </span>
+                      <FiCheck />
+                    </div>
+                  ))
+                )}
               </div>
               <div className="preview-footer">
                 <span><FiCheckCircle aria-hidden="true" /> Order preserved</span>
                 <span><FiShield aria-hidden="true" /> Verified copy</span>
               </div>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm preview-launch-btn"
+                onClick={() => {
+                  if (!session.source) connect('source');
+                  else scrollToWorkspace(true);
+                }}
+              >
+                {session.source ? 'Configure in workspace' : 'Start transfer now'} <FiArrowRight aria-hidden="true" />
+              </button>
               <p className="preview-note"><FiShield aria-hidden="true" /> Official Spotify API · encrypted sessions · no database</p>
             </div>
           </div>
@@ -901,7 +1136,7 @@ export default function App() {
               />
               <span className={`connection-pill ${session.source ? 'is-online' : ''}`}>
                 <span className="status-dot" aria-hidden="true" />
-                {sessionLoading ? 'Checking connection' : session.source ? 'Source connected' : 'Not connected'}
+                {session.source ? 'Source connected' : 'Ready to connect'}
               </span>
             </div>
 
@@ -973,11 +1208,30 @@ export default function App() {
                     return (
                       <div
                         key={service.id}
-                        className={`service-card ${service.ready ? 'is-ready' : 'is-disabled'} ${isConnected ? 'is-connected' : ''}`}
+                        className={`service-card ${isSpotify ? 'service-card-featured is-ready' : 'service-card-roadmap is-disabled'} ${isConnected ? 'is-connected' : ''}`}
+                        onClick={() => {
+                          if (!service.ready) setRoadmapService(service);
+                          else if (!isConnected && isSpotify) connect('source');
+                        }}
+                        style={{ cursor: isConnected ? 'default' : 'pointer' }}
+                        tabIndex={0}
+                        role="button"
+                        aria-label={isConnected ? `${service.name} connected` : service.ready ? `Connect ${service.name}` : `${service.name} roadmap details`}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            if (!service.ready) setRoadmapService(service);
+                            else if (!isConnected && isSpotify) connect('source');
+                          }
+                        }}
                       >
                         <div className="service-card-top">
-                          <span className="service-card-icon"><service.Icon aria-hidden="true" /></span>
-                          {service.badge && <span className="service-badge">{service.badge}</span>}
+                          <span className="service-card-icon" style={{ color: service.color }}><service.Icon aria-hidden="true" /></span>
+                          {service.badge ? (
+                            <span className="service-badge">{service.badge}</span>
+                          ) : (
+                            <span className="service-badge service-badge-live">Live</span>
+                          )}
                           {isConnected && (
                             <span className="service-connected-pill">
                               <span className="status-dot" aria-hidden="true" /> Connected
@@ -988,34 +1242,81 @@ export default function App() {
                         <p className="service-card-desc">
                           {isConnected ? `Connected as ${session.source.name}` : service.description}
                         </p>
+                        {isSpotify && (
+                          <div className="service-highlights" aria-hidden="true">
+                            <span><FiCheck /> Free &amp; Premium accounts</span>
+                            <span><FiCheck /> Verified exact track ordering</span>
+                          </div>
+                        )}
                         <div className="service-card-action">
                           {isConnected ? (
-                            <button
-                              type="button"
-                              className="btn btn-ghost btn-sm"
-                              onClick={() => disconnect('source')}
-                              disabled={sessionLoading}
-                            >
-                              Disconnect
-                            </button>
+                            <div className="service-action-row">
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                onClick={(e) => { e.stopPropagation(); disconnect('source'); }}
+                                disabled={sessionLoading}
+                              >
+                                Disconnect
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-sm"
+                                onClick={(e) => { e.stopPropagation(); setCurrentStep(2); }}
+                              >
+                                Pick playlists <FiArrowRight aria-hidden="true" />
+                              </button>
+                            </div>
                           ) : isSpotify ? (
                             <button
                               type="button"
-                              className="btn btn-primary btn-sm"
-                              onClick={() => connect('source')}
+                              className="btn btn-primary btn-sm btn-connect-main"
+                              onClick={(e) => { e.stopPropagation(); connect('source'); }}
                               disabled={sessionLoading || !session.configured}
                             >
-                              Connect Spotify
+                              <SiSpotify aria-hidden="true" /> Connect Spotify
                             </button>
                           ) : (
-                            <button type="button" className="btn btn-secondary btn-sm" disabled>
-                              Unavailable
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              onClick={(e) => { e.stopPropagation(); setRoadmapService(service); }}
+                            >
+                              View Roadmap
                             </button>
                           )}
                         </div>
                       </div>
                     );
                   })}
+                </div>
+
+                <div className="step1-link-box">
+                  <div className="step1-link-meta">
+                    <FiLink2 aria-hidden="true" />
+                    <div>
+                      <strong>Transfer a public Spotify playlist via link</strong>
+                      <p>Have a public Spotify playlist link? Paste it to load directly without logging into the source account.</p>
+                    </div>
+                  </div>
+                  <form
+                    className="step1-link-form"
+                    onSubmit={(e) => {
+                      loadPastedPlaylist(e);
+                      if (session.source) setCurrentStep(2);
+                    }}
+                  >
+                    <input
+                      type="text"
+                      value={playlistQuery}
+                      onChange={(e) => setPlaylistQuery(e.target.value)}
+                      placeholder="https://open.spotify.com/playlist/..."
+                      aria-label="Paste public Spotify playlist link"
+                    />
+                    <button type="submit" className="btn btn-primary btn-sm" disabled={urlLoading || !playlistQuery.trim()}>
+                      {urlLoading ? 'Loading…' : 'Load Playlist'}
+                    </button>
+                  </form>
                 </div>
 
                 <div className="transparency-box">
@@ -1073,7 +1374,7 @@ export default function App() {
                 <div className="playlist-panel">
                   <div className="playlist-toolbar">
                     <div className="filter-tabs" role="group" aria-label="Filter playlists">
-                      {filters.map((filter) => (
+                      {availableFilters.map((filter) => (
                         <button
                           key={filter.id}
                           type="button"
@@ -1083,8 +1384,14 @@ export default function App() {
                         >
                           {filter.label}
                           <span>
-                            {filter.id === 'all' ? playlists.length : filter.id === 'mine' ? mineCount : followedCount}
-                            {loadedSuffix}
+                            {filter.id === 'all'
+                              ? playlists.length
+                              : filter.id === 'mine'
+                                ? mineCount
+                                : filter.id === 'followed'
+                                  ? followedCount
+                                  : selectedIds.length}
+                            {filter.id === 'selected' ? '' : loadedSuffix}
                           </span>
                         </button>
                       ))}
@@ -1164,6 +1471,15 @@ export default function App() {
                           Select none
                         </button>
                       )}
+                      {selectedIds.length > 0 && (
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-xs summary-continue-btn"
+                          onClick={() => setCurrentStep(3)}
+                        >
+                          Next: Destination ({selectedIds.length}) <FiArrowRight aria-hidden="true" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -1185,6 +1501,26 @@ export default function App() {
                             <span className="tag tag-liked">Collection</span>
                           </span>
                           <span>Saved tracks from your Spotify library</span>
+                        </span>
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          className="playlist-inspect-pill"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewModalPlaylist({ id: 'liked-songs', name: 'Liked Songs', count: null, owner: session.source?.name || 'You', isOwner: true, url: 'https://open.spotify.com/collection/tracks' });
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setPreviewModalPlaylist({ id: 'liked-songs', name: 'Liked Songs', count: null, owner: session.source?.name || 'You', isOwner: true, url: 'https://open.spotify.com/collection/tracks' });
+                            }
+                          }}
+                          title="Inspect Liked Songs collection"
+                          aria-label="Inspect Liked Songs"
+                        >
+                          <FiSearch aria-hidden="true" /> Details
                         </span>
                         <span className="playlist-check" aria-hidden="true">
                           {selectedIds.includes('liked-songs') ? <FiCheck /> : <FiArrowRight />}
@@ -1227,6 +1563,26 @@ export default function App() {
                               <span>
                                 {playlist.count == null ? 'Track count checked at transfer' : `${playlist.count} ${playlist.count === 1 ? 'track' : 'tracks'}`} · by {playlist.owner}
                               </span>
+                            </span>
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              className="playlist-inspect-pill"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPreviewModalPlaylist(playlist);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setPreviewModalPlaylist(playlist);
+                                }
+                              }}
+                              title="Inspect playlist details"
+                              aria-label={`Inspect ${playlist.name}`}
+                            >
+                              <FiSearch aria-hidden="true" /> Details
                             </span>
                             <span className="playlist-check" aria-hidden="true">
                               {isSelected ? <FiCheck /> : <FiArrowRight />}
@@ -1300,9 +1656,22 @@ export default function App() {
                       <div
                         key={service.id}
                         className={`service-card ${service.ready ? 'is-ready' : 'is-disabled'} ${isConnected ? 'is-connected' : ''}`}
+                        onClick={() => {
+                          if (!service.ready) setRoadmapService(service);
+                        }}
+                        style={{ cursor: service.ready ? 'default' : 'pointer' }}
+                        tabIndex={0}
+                        role="button"
+                        aria-label={service.ready ? `${service.name} active destination` : `${service.name} roadmap details`}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            if (!service.ready) setRoadmapService(service);
+                          }
+                        }}
                       >
                         <div className="service-card-top">
-                          <span className="service-card-icon"><service.Icon aria-hidden="true" /></span>
+                          <span className="service-card-icon" style={{ color: service.color }}><service.Icon aria-hidden="true" /></span>
                           {service.badge && <span className="service-badge">{service.badge}</span>}
                           {isConnected && (
                             <span className="service-connected-pill">
@@ -1316,7 +1685,11 @@ export default function App() {
                           {isSpotify ? (
                             <span className="tag tag-mine">Active Destination</span>
                           ) : (
-                            <button type="button" className="btn btn-secondary btn-sm" disabled>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              onClick={(e) => { e.stopPropagation(); setRoadmapService(service); }}
+                            >
                               Unavailable
                             </button>
                           )}
@@ -1460,6 +1833,14 @@ export default function App() {
                     </div>
                   </div>
 
+                  <div className="non-destructive-trust-badge">
+                    <FiShield aria-hidden="true" />
+                    <div>
+                      <strong>100% Non-Destructive Transfer Guarantee</strong>
+                      <span>Your original Spotify playlists and liked songs are never modified or deleted. We only create independent new copies.</span>
+                    </div>
+                  </div>
+
                   <div className="review-manifest-header">
                     <h4>Playlists to copy ({selectedPlaylists.length})</h4>
                     <span className="manifest-track-total">
@@ -1483,9 +1864,22 @@ export default function App() {
                                 {pl.count == null ? 'Track count checked during copy' : `${pl.count} ${pl.count === 1 ? 'track' : 'tracks'}`} · by {pl.owner}
                               </span>
                             </div>
-                            <a className="icon-button" href={pl.url} target="_blank" rel="noreferrer" aria-label={`View ${pl.name} in Spotify`}>
-                              <FiExternalLink aria-hidden="true" />
-                            </a>
+                            <div className="selected-card-actions">
+                              <a className="icon-button" href={pl.url} target="_blank" rel="noreferrer" aria-label={`View ${pl.name} in Spotify`}>
+                                <FiExternalLink aria-hidden="true" />
+                              </a>
+                              {selectedPlaylists.length > 1 && (
+                                <button
+                                  type="button"
+                                  className="icon-button"
+                                  onClick={() => togglePlaylistSelection(pl.id)}
+                                  title="Remove from batch"
+                                  aria-label={`Remove ${pl.name} from transfer`}
+                                >
+                                  <FiX aria-hidden="true" />
+                                </button>
+                              )}
+                            </div>
                           </div>
 
                           <div className="name-input-group">
@@ -1538,12 +1932,24 @@ export default function App() {
               <div className="step-view step-view-5" role="status" aria-live="polite">
                 <div className="result-panel result-progress">
                   <div className="result-hero">
-                    <span className="result-icon result-spinner"><FiRefreshCw aria-hidden="true" /></span>
+                    <span className="result-icon result-spinner">
+                      <AnimatedEqualizer />
+                    </span>
                     <div>
                       <span className="eyebrow">TRANSFER IN PROGRESS</span>
                       <h3>Copying “{selectedPlaylists[activeTransferIndex]?.name || primarySelected?.name}”</h3>
                       <p>Creating destination playlists and verifying tracks in original order.</p>
                     </div>
+                  </div>
+
+                  <div className="transfer-stages-tracker" aria-hidden="true">
+                    <span className="stage-pill stage-done"><FiCheck /> 1. Connect API</span>
+                    <span className="stage-connector active" />
+                    <span className="stage-pill stage-active"><span className="pulse-dot" /> 2. Read Tracks</span>
+                    <span className="stage-connector active" />
+                    <span className="stage-pill stage-active"><span className="pulse-dot" /> 3. Batch Write</span>
+                    <span className="stage-connector" />
+                    <span className="stage-pill stage-upcoming">4. Verify Order</span>
                   </div>
 
                   <div className="transfer-progress-box">
@@ -1729,7 +2135,14 @@ export default function App() {
                       <button type="button" className="btn btn-secondary" onClick={() => copyLink(result.url)}>
                         {copyState === 'copied' ? <><FiCheck aria-hidden="true" /> Link copied</> : copyState === 'failed' ? <><FiAlertTriangle aria-hidden="true" /> Copy failed</> : <><FiCopy aria-hidden="true" /> Copy link</>}
                       </button>
-                      <button type="button" className="btn btn-secondary" onClick={() => downloadCsvReport(result, destinationName, acceptedCloseMatches)}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => {
+                          downloadCsvReport(result, destinationName, acceptedCloseMatches);
+                          showToast('Reconciliation CSV report downloaded!');
+                        }}
+                      >
                         <FiDownload aria-hidden="true" /> Download CSV Report
                       </button>
                       <span className="sr-only" aria-live="polite">{copyState === 'copied' ? 'Link copied to clipboard.' : copyState === 'failed' ? 'Could not copy the link.' : ''}</span>
@@ -1778,7 +2191,14 @@ export default function App() {
                           {copyState === 'copied' ? <><FiCheck aria-hidden="true" /> Link copied</> : copyState === 'failed' ? <><FiAlertTriangle aria-hidden="true" /> Copy failed</> : <><FiCopy aria-hidden="true" /> Copy link</>}
                         </button>
                       )}
-                      <button type="button" className="btn btn-secondary" onClick={() => downloadCsvReport(partial, destinationName, acceptedCloseMatches)}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => {
+                          downloadCsvReport(partial, destinationName, acceptedCloseMatches);
+                          showToast('Reconciliation CSV report downloaded!');
+                        }}
+                      >
                         <FiDownload aria-hidden="true" /> Download CSV Report
                       </button>
                     </div>
@@ -1943,6 +2363,23 @@ export default function App() {
         </nav>
         <p className="footer-legal">© 2026 Playlist Port · Not affiliated with Spotify</p>
       </footer>
+
+      <Toast toast={toast} onClose={() => setToast((t) => ({ ...t, visible: false }))} />
+      <RoadmapModal
+        service={roadmapService}
+        onClose={() => setRoadmapService(null)}
+        onConnectSpotify={() => connect('source')}
+      />
+      <TrackPreviewModal
+        playlist={previewModalPlaylist}
+        onClose={() => setPreviewModalPlaylist(null)}
+        isSelected={previewModalPlaylist ? selectedIds.includes(previewModalPlaylist.id) : false}
+        onToggleSelect={() => {
+          if (previewModalPlaylist) {
+            togglePlaylistSelection(previewModalPlaylist.id, previewModalPlaylist);
+          }
+        }}
+      />
     </div>
   );
 }
