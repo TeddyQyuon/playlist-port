@@ -5279,6 +5279,37 @@ img {
   background: var(--accent-border);
 }
 
+.transfer-current-status-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 16px;
+  line-height: 1.45;
+}
+
+.transfer-current-status-banner .status-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  animation: pulseDot 1.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.step-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 /* Mobile responsive enhancements for hero quick input and link forms */
 @media (max-width: 640px) {
   .hero-quick-form {
@@ -5304,6 +5335,36 @@ img {
     width: 100%;
     min-height: 42px;
     justify-content: center;
+  }
+
+  .transfer-stages-tracker {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 10px;
+    overflow-x: visible;
+  }
+
+  .stage-connector {
+    display: none;
+  }
+
+  .stage-pill {
+    justify-content: center;
+    font-size: 11px;
+    padding: 6px 6px;
+    text-align: center;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .step-actions-group {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .step-actions-group .btn {
+    width: 100%;
   }
 }
 
