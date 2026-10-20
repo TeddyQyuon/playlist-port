@@ -23,7 +23,7 @@ const filters = [
   { id: 'followed', label: 'Followed' }
 ];
 
-const steps = ['Connect account', 'Choose playlist', 'Review & copy', 'Complete'];
+const steps = ['Connect account', 'Choose playlist', 'Review & copy', 'Result'];
 
 function Account({ label, account, onConnect, onDisconnect, disabled, connectLabel = 'Connect Spotify', justConnected }) {
   return (
@@ -265,7 +265,12 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [transferring, setTransferring] = useState(false);
   const [copyState, setCopyState] = useState('idle');
+  const [focusError, setFocusError] = useState(false);
+  const [summaryInView, setSummaryInView] = useState(false);
+  const [workspaceInView, setWorkspaceInView] = useState(false);
   const workspaceRef = useRef(null);
+  const summaryPanelRef = useRef(null);
+  const errorRef = useRef(null);
   const transferLock = useRef(false);
   const copyTimer = useRef(null);
 
@@ -290,7 +295,9 @@ export default function App() {
   const isPastedSpotifyUrl = /(?:playlist\/|playlist:)[A-Za-z0-9_-]{1,64}/.test(playlistQuery.trim());
   const likedVisible = activeTab !== 'followed' && (!playlistQuery || 'liked songs'.includes(playlistQuery.toLowerCase()));
   const currentStep = result || partial ? 4 : !session.source ? 1 : !selected ? 2 : 3;
+  const nameMissing = Boolean(selected) && !newName.trim();
   const readyToCopy = session.configured && session.source && selected && !selectedIsEmpty && newName.trim() && !sameDestination && (!useSecondAccount || session.destination);
+  const showQuickCopy = Boolean(selected && !result && !partial && !transferring && workspaceInView && !summaryInView);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -339,6 +346,32 @@ export default function App() {
   }, [transferring]);
 
   useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return undefined;
+    const workspace = workspaceRef.current;
+    const summary = summaryPanelRef.current;
+    if (!workspace) return undefined;
+    const workspaceObserver = new IntersectionObserver(([entry]) => setWorkspaceInView(entry.isIntersecting), { threshold: 0 });
+    workspaceObserver.observe(workspace);
+    let summaryObserver = null;
+    if (summary) {
+      summaryObserver = new IntersectionObserver(([entry]) => setSummaryInView(entry.isIntersecting), { threshold: 0.2 });
+      summaryObserver.observe(summary);
+    }
+    return () => {
+      workspaceObserver.disconnect();
+      summaryObserver?.disconnect();
+    };
+  }, [result, partial, transferring, session.source?.id]);
+
+  useEffect(() => {
+    if (!focusError || !errorRef.current) return;
+    const reduced = prefersReducedMotion();
+    errorRef.current.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
+    errorRef.current.focus({ preventScroll: true });
+    setFocusError(false);
+  }, [focusError]);
+
+  useEffect(() => {
     if (!session.source) {
       setPlaylists([]);
       setNextOffset(null);
@@ -359,6 +392,18 @@ export default function App() {
     if (focus) {
       setTimeout(() => workspaceRef.current?.focus({ preventScroll: true }), 320);
     }
+  }
+
+  function reviewCopy() {
+    const reduced = prefersReducedMotion();
+    summaryPanelRef.current?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
+    setTimeout(() => document.getElementById('new-name')?.focus({ preventScroll: true }), reduced ? 0 : 360);
+  }
+
+  function changePlaylist() {
+    const reduced = prefersReducedMotion();
+    document.getElementById('step-playlist-title')?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
+    setTimeout(() => document.getElementById('playlist-search')?.focus({ preventScroll: true }), reduced ? 0 : 360);
   }
 
   function startFlow() {
@@ -512,6 +557,7 @@ export default function App() {
     transferLock.current = true;
     setTransferring(true);
     setError('');
+    setFocusError(false);
     setPartial(null);
     setResult(null);
     try {
@@ -523,6 +569,7 @@ export default function App() {
     } catch (err) {
       setError(err.message);
       setPartial(err.partial || null);
+      setFocusError(!err.partial);
     } finally {
       transferLock.current = false;
       setTransferring(false);
@@ -668,7 +715,7 @@ export default function App() {
             )}
 
             {error && !partial && (
-              <div className="inline-alert inline-alert-error" role="alert">
+              <div className="inline-alert inline-alert-error" role="alert" ref={errorRef} tabIndex={-1}>
                 <FiAlertTriangle aria-hidden="true" />
                 <span>{error}</span>
                 <button type="button" onClick={() => setError('')} aria-label="Dismiss error"><FiX aria-hidden="true" /></button>
@@ -734,6 +781,9 @@ export default function App() {
 
                     {session.source ? (
                       <div className="playlist-panel">
+                        <span className="sr-only" aria-live="polite">
+                          {selected ? `Selected ${selected.name}. Review the copy settings below.` : ''}
+                        </span>
                         <div className="playlist-toolbar">
                           <div className="filter-tabs" role="group" aria-label="Filter playlists">
                             {filters.map((filter) => (
@@ -905,7 +955,7 @@ export default function App() {
                     <p className="panel-note"><FiLock aria-hidden="true" /> New copies are hidden from your public profile by default.</p>
                   </section>
 
-                  <form className="panel summary-panel" aria-labelledby="step-copy-title" onSubmit={startTransfer}>
+                  <form className="panel summary-panel" ref={summaryPanelRef} aria-labelledby="step-copy-title" onSubmit={startTransfer}>
                     <div className="summary-head">
                       <StepHeading
                         number="04"
@@ -920,7 +970,10 @@ export default function App() {
                         <div className="selected-card">
                           <PlaylistArt playlist={selected} className="selected-art" />
                           <div className="selected-info">
-                            <span className="selected-label">SELECTED PLAYLIST</span>
+                            <div className="selected-label-row">
+                              <span className="selected-label">SELECTED PLAYLIST</span>
+                              <button type="button" className="selected-change" onClick={changePlaylist}>Change</button>
+                            </div>
                             <strong className="truncate" title={selected.name}>{selected.name}</strong>
                             <span>{selected.count == null ? 'Items verified at transfer' : `${selected.count} ${selected.count === 1 ? 'item' : 'items'}`} · by {selected.owner}</span>
                           </div>
@@ -943,11 +996,16 @@ export default function App() {
                             maxLength={100}
                             required
                             value={newName}
+                            aria-invalid={nameMissing || undefined}
+                            aria-describedby={nameMissing ? 'new-name-error' : undefined}
                             onChange={(event) => { setNewName(event.target.value); writeSessionItem('playlist-port.name', event.target.value); }}
                             placeholder="Name your new playlist"
                           />
                           {newName.length > 80 && <span className="name-count">{newName.length}/100</span>}
                         </div>
+                        {nameMissing && (
+                          <p className="name-hint" id="new-name-error"><FiAlertTriangle aria-hidden="true" /> Enter a name to continue.</p>
+                        )}
                       </>
                     ) : (
                       <div className="summary-empty">
@@ -970,12 +1028,25 @@ export default function App() {
                       <button type="button" className="btn btn-primary btn-block" disabled>Connect a different account</button>
                     ) : (
                       <button type="submit" className="btn btn-primary btn-block" disabled={!readyToCopy}>
-                        {selectedIsEmpty ? 'Playlist is empty' : <>Copy playlist <FiArrowRight aria-hidden="true" /></>}
+                        {selectedIsEmpty ? 'Playlist is empty' : nameMissing ? 'Enter a playlist name' : <>Copy playlist <FiArrowRight aria-hidden="true" /></>}
                       </button>
                     )}
                     <p className="summary-footnote"><FiShield aria-hidden="true" /> Original playlist stays untouched · No audio is copied</p>
                   </form>
                 </aside>
+              </div>
+            )}
+
+            {showQuickCopy && (
+              <div className="quick-copy" role="region" aria-label="Selected playlist">
+                <PlaylistArt playlist={selected} className="quick-copy-art" />
+                <div className="quick-copy-info">
+                  <span>{selected.count != null ? `${selected.count} ${selected.count === 1 ? 'item' : 'items'} selected` : 'Selected playlist'}</span>
+                  <strong className="truncate" title={selected.name}>{selected.name}</strong>
+                </div>
+                <button type="button" className="btn btn-primary quick-copy-btn" onClick={reviewCopy}>
+                  Review copy <FiArrowRight aria-hidden="true" />
+                </button>
               </div>
             )}
           </div>
