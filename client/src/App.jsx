@@ -180,9 +180,33 @@ function PartialPanel({ partial, error, onReset, copyState, onCopy }) {
   );
 }
 
-function TransferPanel({ selected }) {
+function progressMessage(elapsed) {
+  if (elapsed < 6) return 'Creating the private playlist and adding the first items.';
+  if (elapsed < 18) return 'Copying items in their original order. Large playlists can take a little while.';
+  if (elapsed < 40) return 'Spotify is still saving items. Keep this tab open while the copy finishes.';
+  return 'Spotify is taking longer than usual. Keep this tab open — the copy is still running.';
+}
+
+function TransferPanel({ selected, destinationName }) {
+  const panelRef = useRef(null);
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setElapsed((seconds) => seconds + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    panelRef.current?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
+    const focusTimer = setTimeout(() => panelRef.current?.focus({ preventScroll: true }), reduced ? 0 : 350);
+    return () => clearTimeout(focusTimer);
+  }, []);
+
+  const elapsedLabel = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`;
+
   return (
-    <div className="result-panel result-progress" role="status" aria-live="polite">
+    <div className="result-panel result-progress" ref={panelRef} tabIndex={-1} role="status" aria-live="polite">
       <div className="result-hero">
         <span className="result-icon result-spinner"><FiRefreshCw aria-hidden="true" /></span>
         <div>
@@ -192,11 +216,17 @@ function TransferPanel({ selected }) {
         </div>
       </div>
       <div className="progress-track" aria-hidden="true"><span /></div>
+      <p className="progress-status"><span className="progress-dot" aria-hidden="true" />{progressMessage(elapsed)}</p>
       <ol className="transfer-stages">
         <li className="done"><span><FiCheck aria-hidden="true" /></span> Connected to Spotify</li>
         <li className="current"><span><FiRefreshCw aria-hidden="true" /></span> Creating playlist and copying items</li>
         <li><span>3</span> Verifying the saved order</li>
       </ol>
+      <div className="progress-meta">
+        <div><span>TO</span><strong className="truncate" title={destinationName}>{destinationName}</strong></div>
+        <div><span>ITEMS</span><strong>{selected?.count == null ? 'Checking' : selected.count}</strong></div>
+        <div><span>ELAPSED</span><strong aria-hidden="true">{elapsedLabel}</strong></div>
+      </div>
       <p className="result-note"><FiShield aria-hidden="true" /> Your source playlist is never modified.</p>
     </div>
   );
@@ -283,6 +313,16 @@ export default function App() {
   }, [justConnected]);
 
   useEffect(() => () => clearTimeout(copyTimer.current), []);
+
+  useEffect(() => {
+    if (!transferring) return undefined;
+    const warnBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
+  }, [transferring]);
 
   useEffect(() => {
     if (!session.source) {
@@ -645,7 +685,7 @@ export default function App() {
                 onCopy={copyLink}
               />
             ) : transferring ? (
-              <TransferPanel selected={selected} />
+              <TransferPanel selected={selected} destinationName={destinationName} />
             ) : (
               <div className="workflow-grid" aria-busy={playlistsLoading || urlLoading}>
                 <div className="workflow-main">
