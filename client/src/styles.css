@@ -2163,6 +2163,96 @@ img {
   font-size: 13px;
 }
 
+.result-again {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 13px 14px;
+  border: 1px solid rgba(30, 215, 96, 0.26);
+  border-radius: 11px;
+  background:
+    radial-gradient(260px 120px at 0% 0%, rgba(30, 215, 96, 0.16), transparent 70%),
+    linear-gradient(105deg, rgba(30, 215, 96, 0.09), rgba(96, 165, 250, 0.07));
+}
+
+.result-again-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 50%;
+  background: rgba(30, 215, 96, 0.16);
+  color: #a8f4c3;
+  font-size: 17px;
+}
+
+.result-again-copy {
+  display: grid;
+  gap: 2px;
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.result-again-copy strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.result-again-copy span {
+  color: var(--text-2);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.result-again .btn {
+  flex: none;
+  margin-left: auto;
+}
+
+.btn-again {
+  background: rgba(30, 215, 96, 0.14);
+  border-color: rgba(30, 215, 96, 0.42);
+  color: #b9f6cd;
+}
+
+.btn-again:hover:not(:disabled) {
+  background: rgba(30, 215, 96, 0.22);
+  border-color: rgba(30, 215, 96, 0.6);
+  color: #e2ffec;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(30, 215, 96, 0.14);
+}
+
+.result-again-partial {
+  border-color: rgba(246, 200, 95, 0.28);
+  background:
+    radial-gradient(260px 120px at 0% 0%, rgba(246, 200, 95, 0.16), transparent 70%),
+    linear-gradient(105deg, rgba(246, 200, 95, 0.09), rgba(96, 165, 250, 0.06));
+}
+
+.result-again-partial .result-again-icon {
+  background: rgba(246, 200, 95, 0.15);
+  color: #f6c85f;
+}
+
+.result-again-partial .btn-again {
+  background: rgba(246, 200, 95, 0.13);
+  border-color: rgba(246, 200, 95, 0.42);
+  color: #ffe2a1;
+}
+
+.result-again-partial .btn-again:hover:not(:disabled) {
+  background: rgba(246, 200, 95, 0.2);
+  border-color: rgba(246, 200, 95, 0.58);
+  color: #fff1cc;
+  box-shadow: 0 8px 22px rgba(246, 200, 95, 0.12);
+}
+
 .progress-track {
   height: 5px;
   margin: 18px 0;
@@ -3063,6 +3153,11 @@ img {
 
   .result-actions .btn {
     width: 100%;
+  }
+
+  .result-again .btn {
+    width: 100%;
+    margin-left: 0;
   }
 
   .transfer-stages {

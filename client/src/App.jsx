@@ -139,11 +139,18 @@ function ResultPanel({ result, destinationName, onReset, copyState, onCopy }) {
           {copyState === 'copied' ? <><FiCheck aria-hidden="true" /> Link copied</> : copyState === 'failed' ? <><FiAlertTriangle aria-hidden="true" /> Copy failed</> : <><FiCopy aria-hidden="true" /> Copy link</>}
         </button>
         <span className="sr-only" aria-live="polite">{copyState === 'copied' ? 'Link copied to clipboard.' : copyState === 'failed' ? 'Could not copy the link.' : ''}</span>
-        <button type="button" className="btn btn-ghost" onClick={onReset}>
-          <FiRefreshCw aria-hidden="true" /> Transfer another playlist
+      </div>
+      <p className="result-note"><FiInfo aria-hidden="true" /><span>The copy is hidden from your public profile. Anyone with its link can open it until you choose <strong>Make private</strong> in Spotify.</span></p>
+      <div className="result-again">
+        <span className="result-again-icon" aria-hidden="true"><FiPlus /></span>
+        <div className="result-again-copy">
+          <strong>Ready for another playlist?</strong>
+          <span>Start a new copy in this workspace — your source playlists stay untouched.</span>
+        </div>
+        <button type="button" className="btn btn-again" onClick={onReset}>
+          Transfer another playlist <FiArrowRight aria-hidden="true" />
         </button>
       </div>
-      <p className="result-note"><FiInfo aria-hidden="true" /> The copy is hidden from your public profile. Anyone with its link can open it until you choose <strong>Make private</strong> in Spotify.</p>
     </div>
   );
 }
@@ -171,11 +178,18 @@ function PartialPanel({ partial, error, onReset, copyState, onCopy }) {
           {copyState === 'copied' ? <><FiCheck aria-hidden="true" /> Link copied</> : copyState === 'failed' ? <><FiAlertTriangle aria-hidden="true" /> Copy failed</> : <><FiCopy aria-hidden="true" /> Copy link</>}
         </button>
         <span className="sr-only" aria-live="polite">{copyState === 'copied' ? 'Link copied to clipboard.' : copyState === 'failed' ? 'Could not copy the link.' : ''}</span>
-        <button type="button" className="btn btn-ghost" onClick={onReset}>
-          <FiRefreshCw aria-hidden="true" /> Start over
+      </div>
+      <p className="result-note"><FiInfo aria-hidden="true" /><span>A partial playlist already exists in Spotify. Starting over will not delete it, so check the link before copying again.</span></p>
+      <div className="result-again result-again-partial">
+        <span className="result-again-icon" aria-hidden="true"><FiRefreshCw /></span>
+        <div className="result-again-copy">
+          <strong>Want to copy a different playlist?</strong>
+          <span>Start a fresh transfer, or open the partial link above before trying again.</span>
+        </div>
+        <button type="button" className="btn btn-again" onClick={onReset}>
+          Transfer another playlist <FiArrowRight aria-hidden="true" />
         </button>
       </div>
-      <p className="result-note"><FiInfo aria-hidden="true" /> A partial playlist already exists in Spotify. Starting over will not delete it, so check the link before copying again.</p>
     </div>
   );
 }
@@ -227,7 +241,7 @@ function TransferPanel({ selected, destinationName }) {
         <div><span>ITEMS</span><strong>{selected?.count == null ? 'Checking' : selected.count}</strong></div>
         <div><span>ELAPSED</span><strong aria-hidden="true">{elapsedLabel}</strong></div>
       </div>
-      <p className="result-note"><FiShield aria-hidden="true" /> Your source playlist is never modified.</p>
+      <p className="result-note"><FiShield aria-hidden="true" /><span>Your source playlist is never modified.</span></p>
     </div>
   );
 }
