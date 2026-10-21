@@ -33,7 +33,7 @@ const filters = [
 
 const sortOptions = [
   { id: 'recent', label: 'Recently added' },
-  { id: 'name', label: 'Name A–Z' },
+  { id: 'name', label: 'Name A-Z' },
   { id: 'size', label: 'Most items' }
 ];
 
