@@ -189,7 +189,7 @@ def main(argv):
     unreadable = []
     for f in files:
         try:
-            text = f.read_text()
+            text = f.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError) as err:
             # Swallowing this counted the file as scanned and let the run exit 0
             # having never opened it - the same shape as the missing-path guard
