@@ -24,7 +24,7 @@ test('stepper labels and 6-step architecture render in SSR markup', async (t) =>
   // Verify all 6 step labels are rendered in the stepper
   assert.match(markup, /Connect source/);
   assert.match(markup, /Pick playlists/);
-  assert.match(markup, /Connect destination/);
+  assert.match(markup, /Choose destination/);
   assert.match(markup, /Review/);
   assert.match(markup, /Transfer/);
   assert.match(markup, /Results/);
