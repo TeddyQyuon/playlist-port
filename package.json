@@ -7,6 +7,12 @@
     "dev": "node scripts/dev.mjs",
     "build": "npm run build --workspace client && node scripts/copy-public.mjs",
     "start": "npm run start --workspace server",
-    "test": "node --test server/test/*.test.cjs client/test/*.test.mjs"
+    "test": "node --test server/test/*.test.cjs client/test/*.test.mjs",
+    "tokens:build": "node scripts/build_tokens.mjs --out client/src/tokens.css",
+    "tokens:validate": "python scripts/validate_tokens.py",
+    "a11y:contrast": "python scripts/validate_contrast.py",
+    "a11y:gates": "python scripts/validate_tokens.py && python scripts/validate_contrast.py && python scripts/validate_component_spec.py",
+    "lint:emoji": "python scripts/check_no_emoji.py",
+    "lint:hardcodes": "python scripts/lint_hardcodes.py client/src/styles.css"
   }
 }
