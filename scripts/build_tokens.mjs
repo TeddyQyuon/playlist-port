@@ -197,9 +197,12 @@ function emitGroup(node, prefix, bucket, dark = null) {
     if (k.startsWith('$')) continue;
     if (v && typeof v === 'object' && '$value' in v) {
       const out = cssValue(v.$value, dark, v.$type);
-      const name = k.startsWith(prefix) ? k : `${prefix}${k}`;   // "ease-" + "ease-out" is one name, not two
+      const rawName = k.startsWith(prefix) ? k : `${prefix}${k}`;   // "ease-" + "ease-out" is one name, not two
+      const name = rawName.includes('.') ? rawName.replace(/\./g, '-') : rawName;
       if (out !== null && /\{[^}]+\}/.test(String(out))) unresolved.push([`--${name}`, String(out)]);
-    else if (out !== null) lines[bucket].push(`  --${name}: ${out};`);
+      else if (out !== null) {
+        lines[bucket].push(`  --${name}: ${out};`);
+      }
     } else if (v && typeof v === 'object') {
       emitGroup(v, `${prefix}${k}-`, bucket, dark);
     }
