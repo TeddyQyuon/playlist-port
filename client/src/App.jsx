@@ -11,7 +11,7 @@ import { readLocalItem, readSessionItem, removeSessionItem, writeLocalItem, writ
 const STEP_LABELS = [
   'Connect source',
   'Pick playlists',
-  'Connect destination',
+  'Choose destination',
   'Review',
   'Transfer',
   'Results'
@@ -27,7 +27,7 @@ const SOURCE_SERVICES = [
 
 const filters = [
   { id: 'all', label: 'All' },
-  { id: 'mine', label: 'Created by you' },
+  { id: 'mine', label: 'Created' },
   { id: 'followed', label: 'Followed' }
 ];
 
@@ -54,10 +54,12 @@ function ThemeToggle({ theme, onToggle }) {
 
 function SortMenu({ value, onChange }) {
   const [open, setOpen] = useState(false);
+  const [placement, setPlacement] = useState('bottom');
   const [activeIndex, setActiveIndex] = useState(() => Math.max(0, sortOptions.findIndex((option) => option.id === value)));
   const rootRef = useRef(null);
   const triggerRef = useRef(null);
   const optionRefs = useRef([]);
+  const typeaheadRef = useRef({ query: '', last: 0 });
   const selected = sortOptions.find((option) => option.id === value) || sortOptions[0];
 
   useEffect(() => {
@@ -74,6 +76,12 @@ function SortMenu({ value, onChange }) {
   }, [activeIndex, open]);
 
   function showMenu(index = sortOptions.findIndex((option) => option.id === value)) {
+    const trigger = triggerRef.current?.getBoundingClientRect();
+    const estimatedMenuHeight = 156;
+    const shouldOpenUp = trigger
+      && window.innerHeight - trigger.bottom < estimatedMenuHeight
+      && trigger.top > estimatedMenuHeight;
+    setPlacement(shouldOpenUp ? 'top' : 'bottom');
     setActiveIndex(index < 0 ? 0 : index);
     setOpen(true);
   }
@@ -91,7 +99,21 @@ function SortMenu({ value, onChange }) {
     }
   }
 
+  function handleTypeahead(event) {
+    if (event.key.length !== 1 || event.key === ' ' || event.ctrlKey || event.metaKey || event.altKey) return false;
+    const state = typeaheadRef.current;
+    const now = Date.now();
+    state.query = now - state.last < 800 ? state.query + event.key.toLowerCase() : event.key.toLowerCase();
+    state.last = now;
+    const match = sortOptions.findIndex((option) => option.label.toLowerCase().startsWith(state.query));
+    if (match < 0) return false;
+    event.preventDefault();
+    setActiveIndex(match);
+    return true;
+  }
+
   function handleOptionKeyDown(event, index) {
+    if (handleTypeahead(event)) return;
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       const direction = event.key === 'ArrowDown' ? 1 : -1;
@@ -112,7 +134,7 @@ function SortMenu({ value, onChange }) {
   }
 
   return (
-    <div className={`sort-menu ${open ? 'is-open' : ''}`} ref={rootRef}>
+    <div className={`sort-menu ${open ? 'is-open' : ''} ${placement === 'top' ? 'opens-up' : ''}`} ref={rootRef}>
       <button
         type="button"
         className="sort-trigger"
@@ -393,7 +415,7 @@ function RoadmapModal({ service, onClose, onConnectSpotify }) {
   if (!service) return null;
 
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="roadmap-title">
+    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="roadmap-modal-title">
       <div className="modal-dialog roadmap-modal" ref={modalRef} tabIndex={-1}>
         <div className="modal-header">
           <span className="roadmap-service-icon" style={{ color: service.color || 'var(--accent)' }}>
@@ -401,7 +423,7 @@ function RoadmapModal({ service, onClose, onConnectSpotify }) {
           </span>
           <div className="roadmap-title-wrap">
             <span className="service-badge">{service.badge || 'Roadmap'}</span>
-            <h3 id="roadmap-title">{service.name} integration</h3>
+            <h3 id="roadmap-modal-title">{service.name} integration</h3>
           </div>
           <button type="button" className="icon-button modal-close-btn" onClick={onClose} aria-label="Close dialog">
             <FiX aria-hidden="true" />
@@ -482,7 +504,7 @@ function TrackPreviewModal({ playlist, onClose, onToggleSelect, isSelected }) {
           <div className="preview-guarantee-note">
             <FiShield aria-hidden="true" />
             <span>
-              All available tracks, metadata, and sequential order will be copied into your destination account. The original Spotify playlist stays 100% untouched.
+              All available tracks, metadata, and sequential order will be copied into your destination account. The original Spotify playlist stays untouched.
             </span>
           </div>
           {playlist.url && (
@@ -503,7 +525,7 @@ function TrackPreviewModal({ playlist, onClose, onToggleSelect, isSelected }) {
               onClose();
             }}
           >
-            {isSelected ? 'Remove from Selection' : 'Select for Transfer'}
+            {isSelected ? 'Remove from selection' : 'Select for transfer'}
           </button>
         </div>
       </div>
@@ -1419,7 +1441,7 @@ export default function App() {
                         <span className="eyebrow">Roadmap</span>
                         <h4 id="roadmap-title">More services</h4>
                       </div>
-                      <span className="roadmap-count">4 planned</span>
+                      <span className="roadmap-count">{SOURCE_SERVICES.length - 1} planned</span>
                     </div>
 
                     <div className="roadmap-list">

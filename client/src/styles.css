@@ -1686,6 +1686,11 @@ img {
   font-size: 14px;
 }
 
+.sort-menu.opens-up .sort-options {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
 .icon-button {
   width: 34px;
   height: 34px;
@@ -4576,8 +4581,8 @@ img {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  max-width: 640px;
-  margin: 0 auto;
+  max-width: 720px;
+  margin: 0;
   width: 100%;
 }
 
@@ -4809,10 +4814,12 @@ img {
 }
 
 .modal-header {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;
+  padding-right: 38px;
 }
 
 .modal-icon-alert {
@@ -5953,6 +5960,19 @@ img {
 }
 
 @media (max-width: 380px) {
+  .step-view {
+    padding: 14px;
+  }
+
+  .source-spotlight,
+  .roadmap-panel {
+    padding: 14px;
+  }
+
+  .destination-service-bar {
+    padding: 12px;
+  }
+
   .source-spotlight-title h4 {
     font-size: 18px;
   }
@@ -5967,13 +5987,32 @@ img {
   .hero-quick-form {
     flex-direction: column;
     align-items: stretch;
-    padding: 8px 10px;
+    padding: 0;
     gap: 10px;
+    border: 0;
+    background: transparent;
+    border-radius: 0;
+  }
+
+  .hero-quick-form:focus-within {
+    box-shadow: none;
+  }
+
+  .hero-quick-form > svg {
+    display: none;
+  }
+
+  .hero-quick-form input {
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--input-bg);
   }
 
   .hero-quick-form .btn {
     width: 100%;
-    min-height: 42px;
+    min-height: 44px;
     justify-content: center;
   }
 
