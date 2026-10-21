@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
+import PortfolioDemoBadge from './PortfolioDemoBadge.jsx';
 import './tokens.css';
 import './styles.css';
 
@@ -29,5 +30,6 @@ class StartupBoundary extends React.Component {
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <StartupBoundary><App /></StartupBoundary>
+    <PortfolioDemoBadge />
   </React.StrictMode>
 );
