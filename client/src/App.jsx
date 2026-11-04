@@ -6,6 +6,7 @@ import {
   FiSearch, FiShield, FiSliders, FiSun, FiUser, FiUsers, FiWifiOff, FiX
 } from 'react-icons/fi';
 import { api } from './api.js';
+import TransferProgress from './TransferProgress.jsx';
 import { transferQueue } from './transfer-queue.js';
 import { readLocalItem, readSessionItem, removeSessionItem, writeLocalItem, writeSessionItem } from './storage.js';
 
@@ -324,15 +325,34 @@ function PlaylistRow({ playlist, selected, onToggle, onInspect, liked = false })
 
 function CancelConfirmModal({ isOpen, onKeep, onConfirm }) {
   const modalRef = useRef(null);
+  const onKeepRef = useRef(onKeep);
+  onKeepRef.current = onKeep;
 
   useEffect(() => {
-    if (isOpen) {
-      modalRef.current?.focus();
-      const onKeyDown = (e) => { if (e.key === 'Escape') onKeep(); };
-      window.addEventListener('keydown', onKeyDown);
-      return () => window.removeEventListener('keydown', onKeyDown);
-    }
-  }, [isOpen, onKeep]);
+    if (!isOpen) return undefined;
+    const previousFocus = document.activeElement;
+    modalRef.current?.focus();
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') onKeepRef.current();
+      if (event.key !== 'Tab') return;
+      const buttons = modalRef.current?.querySelectorAll('button:not(:disabled)');
+      if (!buttons?.length) return;
+      const first = buttons[0];
+      const last = buttons[buttons.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === modalRef.current)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === modalRef.current)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      previousFocus?.focus?.();
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -344,7 +364,7 @@ function CancelConfirmModal({ isOpen, onKeep, onConfirm }) {
           <h3 id="cancel-title">Cancel transfer?</h3>
         </div>
         <p className="modal-text">
-          Tracks already copied to your destination Spotify account will remain saved. Your source playlist is never modified.
+          The transfer will stop after the current playlist finishes. Copies already made will stay saved in your destination account. Your source playlist is never modified.
         </p>
         <div className="modal-footer">
           <button type="button" className="btn btn-secondary" onClick={onKeep}>
@@ -547,18 +567,6 @@ function Toast({ toast, onClose }) {
   );
 }
 
-function AnimatedEqualizer() {
-  return (
-    <div className="audio-equalizer" aria-hidden="true">
-      <span className="eq-bar eq-bar-1" />
-      <span className="eq-bar eq-bar-2" />
-      <span className="eq-bar eq-bar-3" />
-      <span className="eq-bar eq-bar-4" />
-      <span className="eq-bar eq-bar-5" />
-    </div>
-  );
-}
-
 export default function App() {
   const [session, setSession] = useState({ configured: false, source: null, destination: null });
   const [sessionLoading, setSessionLoading] = useState(true);
@@ -593,6 +601,7 @@ export default function App() {
   const [transferring, setTransferring] = useState(false);
   const [transferElapsed, setTransferElapsed] = useState(0);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelRequested, setCancelRequested] = useState(false);
   const [copyState, setCopyState] = useState('idle');
   const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false);
   const [acceptedCloseMatches, setAcceptedCloseMatches] = useState({});
@@ -603,6 +612,7 @@ export default function App() {
   const [customNames, setCustomNames] = useState({});
 
   const workspaceRef = useRef(null);
+  const transferViewRef = useRef(null);
   const errorRef = useRef(null);
   const transferLock = useRef(false);
   const cancelTransferRef = useRef(false);
@@ -755,6 +765,13 @@ export default function App() {
     }
     loadPlaylists(0, true);
   }, [session.source?.id]);
+
+  // Start at the transfer monitor so long selections never require a page search.
+  useEffect(() => {
+    if (currentStep !== 5) return;
+    transferViewRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' });
+    transferViewRef.current?.focus({ preventScroll: true });
+  }, [currentStep]);
 
   // Transfer elapsed timer
   useEffect(() => {
@@ -980,6 +997,7 @@ export default function App() {
     if (transferLock.current || !readyToCopy || selectedPlaylists.length === 0) return;
     transferLock.current = true;
     cancelTransferRef.current = false;
+    setCancelRequested(false);
     setTransferring(true);
     setTransferElapsed(0);
     setError('');
@@ -987,7 +1005,6 @@ export default function App() {
     setResult(null);
     setTransferResults([]);
     setCurrentStep(5);
-    scrollToWorkspace(true);
 
     setSkippedPlaylists([]);
     setActiveTransferIndex(0);
@@ -1048,6 +1065,7 @@ export default function App() {
 
   function handleCancelConfirm() {
     cancelTransferRef.current = true;
+    setCancelRequested(true);
     setShowCancelModal(false);
   }
 
@@ -1061,25 +1079,6 @@ export default function App() {
       [matchId]: true
     }));
   }
-
-  // Estimated time and progress calculation
-  const totalItemsCount = totalTracksSelected || selectedPlaylists.length * 40 || 50;
-  const estimatedSeconds = Math.max(4, Math.ceil(totalItemsCount * 0.12));
-  const remainingSeconds = Math.max(0, estimatedSeconds - transferElapsed);
-  const completedTracksSoFar = transferResults.reduce((acc, r) => acc + (r.copied || 0) + (r.skipped || 0), 0);
-  const activePlaylistItems = selectedPlaylists[activeTransferIndex]?.count ?? 30;
-  const simulatedActiveProgress = Math.min(activePlaylistItems, Math.round((transferElapsed % 8) * (activePlaylistItems / 8)));
-  const tracksProcessedDisplay = Math.min(totalItemsCount, completedTracksSoFar + (transferring ? simulatedActiveProgress : 0));
-  const progressPercent = Math.min(98, Math.max(8, Math.round(((activeTransferIndex + (transferElapsed / Math.max(4, estimatedSeconds / Math.max(1, selectedPlaylists.length)))) / Math.max(1, selectedPlaylists.length)) * 100)));
-  const activeTransferStage = !transferring
-    ? (result ? 4 : 1)
-    : progressPercent < 20
-      ? 1
-      : progressPercent < 50
-        ? 2
-        : progressPercent < 85
-          ? 3
-          : 4;
 
   return (
     <div className="page-shell">
@@ -1964,122 +1963,17 @@ export default function App() {
 
             {/* STEP 5: TRANSFER IN PROGRESS */}
             {currentStep === 5 && (
-              <div className="step-view step-view-5" role="status" aria-live="polite">
-                <div className="result-panel result-progress">
-                  <div className="result-hero">
-                    <span className="result-icon result-spinner">
-                      <AnimatedEqualizer />
-                    </span>
-                    <div>
-                      <span className="eyebrow">TRANSFER IN PROGRESS</span>
-                      <h3>Copying “{selectedPlaylists[activeTransferIndex]?.name || primarySelected?.name}”</h3>
-                      <p>Creating destination playlists and verifying tracks in original order.</p>
-                    </div>
-                  </div>
-
-                  <div className="transfer-stages-tracker" aria-label="Transfer pipeline stages">
-                    <div className={`stage-pill ${activeTransferStage > 1 ? 'stage-done' : activeTransferStage === 1 ? 'stage-active' : 'stage-upcoming'}`}>
-                      {activeTransferStage > 1 ? <FiCheck aria-hidden="true" /> : <span className="pulse-dot" aria-hidden="true" />}
-                      <span>1. Connect API</span>
-                    </div>
-                    <span className={`stage-connector ${activeTransferStage > 1 ? 'active' : ''}`} aria-hidden="true" />
-                    <div className={`stage-pill ${activeTransferStage > 2 ? 'stage-done' : activeTransferStage === 2 ? 'stage-active' : 'stage-upcoming'}`}>
-                      {activeTransferStage > 2 ? <FiCheck aria-hidden="true" /> : activeTransferStage === 2 ? <span className="pulse-dot" aria-hidden="true" /> : null}
-                      <span>2. Read Tracks</span>
-                    </div>
-                    <span className={`stage-connector ${activeTransferStage > 2 ? 'active' : ''}`} aria-hidden="true" />
-                    <div className={`stage-pill ${activeTransferStage > 3 ? 'stage-done' : activeTransferStage === 3 ? 'stage-active' : 'stage-upcoming'}`}>
-                      {activeTransferStage > 3 ? <FiCheck aria-hidden="true" /> : activeTransferStage === 3 ? <span className="pulse-dot" aria-hidden="true" /> : null}
-                      <span>3. Batch Write</span>
-                    </div>
-                    <span className={`stage-connector ${activeTransferStage > 3 ? 'active' : ''}`} aria-hidden="true" />
-                    <div className={`stage-pill ${activeTransferStage === 4 ? 'stage-active' : activeTransferStage > 4 ? 'stage-done' : 'stage-upcoming'}`}>
-                      {activeTransferStage === 4 ? <span className="pulse-dot" aria-hidden="true" /> : null}
-                      <span>4. Verify Order</span>
-                    </div>
-                  </div>
-
-                  <div className="transfer-current-status-banner">
-                    <span className="status-indicator-dot" aria-hidden="true" />
-                    <span>
-                      {activeTransferStage === 1 && 'Connecting to Spotify Web API securely...'}
-                      {activeTransferStage === 2 && `Reading tracklist from “${selectedPlaylists[activeTransferIndex]?.name || primarySelected?.name}”...`}
-                      {activeTransferStage === 3 && `Writing items in 100-track batches to destination account (${tracksProcessedDisplay} of ${totalItemsCount} tracks)...`}
-                      {activeTransferStage === 4 && 'Verifying destination playlist order, track IDs, and completeness...'}
-                    </span>
-                  </div>
-
-                  <div className="transfer-progress-box">
-                    <div className="progress-bar-container">
-                      <div className="progress-bar-fill" style={{ width: `${progressPercent}%` }} />
-                    </div>
-                    <div className="progress-bar-stats">
-                      <span>{Math.round(progressPercent)}% overall completed</span>
-                      <span>~{remainingSeconds}s remaining</span>
-                    </div>
-                  </div>
-
-                  {/* Per-playlist progress bars */}
-                  <div className="per-playlist-progress-list" aria-label="Playlists transfer progress">
-                    {selectedPlaylists.map((pl, idx) => {
-                      const isPast = idx < activeTransferIndex;
-                      const isCurrent = idx === activeTransferIndex && transferring;
-                      const isQueued = idx > activeTransferIndex;
-                      const plResult = transferResults[idx];
-                      const plTracks = pl.count ?? 30;
-                      const plPercent = isPast ? 100 : isCurrent ? Math.min(95, Math.max(10, Math.round((simulatedActiveProgress / Math.max(1, plTracks)) * 100))) : 0;
-
-                      return (
-                        <div key={pl.id} className={`per-playlist-progress-item ${isCurrent ? 'is-active' : isPast ? 'is-done' : 'is-queued'}`}>
-                          <div className="per-playlist-info">
-                            <PlaylistArt playlist={pl} className="per-playlist-art" />
-                            <div className="per-playlist-names">
-                              <strong>{pl.name}</strong>
-                              <span>
-                                {plResult?.status === 'skipped'
-                                  ? plResult.message
-                                  : isPast
-                                  ? `${plResult?.copied ?? plTracks} tracks copied · Verified`
-                                  : isCurrent
-                                    ? `Processing items (${Math.min(plTracks, simulatedActiveProgress)} of ${plTracks} tracks)...`
-                                    : `${plTracks} tracks · Queued`}
-                              </span>
-                            </div>
-                            <span className="per-playlist-badge">
-                              {plResult?.status === 'skipped' ? 'Skipped' : isPast ? <><FiCheck aria-hidden="true" /> Done</> : isCurrent ? <><FiRefreshCw className="spin" aria-hidden="true" /> Active</> : 'Queued'}
-                            </span>
-                          </div>
-                          <div className="per-playlist-bar-track" aria-hidden="true">
-                            <div className="per-playlist-bar-fill" style={{ width: `${plPercent}%` }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="tab-safety-notice">
-                    <FiAlertTriangle aria-hidden="true" />
-                    <p>
-                      <strong>Keep this tab open.</strong> Transfers execute in real-time from your active browser session. Do not close or navigate away until verification finishes.
-                    </p>
-                  </div>
-
-                  <div className="progress-meta">
-                    <div><span>TO</span><strong className="truncate" title={destinationName}>{destinationName}</strong></div>
-                    <div><span>TRACKS PROCESSED</span><strong>{tracksProcessedDisplay} of {totalItemsCount}</strong></div>
-                    <div><span>ELAPSED</span><strong>{Math.floor(transferElapsed / 60)}:{String(transferElapsed % 60).padStart(2, '0')}</strong></div>
-                  </div>
-
-                  <div className="transfer-cancel-bar">
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => setShowCancelModal(true)}
-                    >
-                      Cancel transfer
-                    </button>
-                  </div>
-                </div>
+              <div className="step-view step-view-5" ref={transferViewRef} tabIndex={-1}>
+                <TransferProgress
+                  playlists={selectedPlaylists}
+                  activeIndex={activeTransferIndex}
+                  results={transferResults}
+                  elapsed={transferElapsed}
+                  destination={destinationName}
+                  cancelRequested={cancelRequested}
+                  onCancel={() => setShowCancelModal(true)}
+                  Art={PlaylistArt}
+                />
 
                 <CancelConfirmModal
                   isOpen={showCancelModal}
