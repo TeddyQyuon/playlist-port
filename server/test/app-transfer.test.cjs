@@ -29,6 +29,10 @@ test('Spotify sign-in and private copy support legacy playlist fields without in
       };
     } else if (path === '/playlists/source123') {
       data = { name: 'Road Trip', owner: { id: 'source-user' }, description: 'Driving songs' };
+    } else if (path === '/playlists/empty123') {
+      data = { name: 'Empty', items: { total: 0 } };
+    } else if (path.startsWith('/playlists/empty123/items?') || path.startsWith('/me/tracks?')) {
+      data = { items: [], total: 0, next: null };
     } else if (path === '/playlists/source123/items?limit=50&offset=0&additional_types=episode') {
       data = { items: [
         { is_local: false, track: { uri: 'spotify:track:first' } },
@@ -70,6 +74,17 @@ test('Spotify sign-in and private copy support legacy playlist fields without in
       { name: 'Empty', count: 0 },
       { name: 'Unknown count', count: null }
     ]);
+
+    for (const playlistId of ['empty123', 'liked-songs']) {
+      const response = await originalFetch(`${base}/api/transfer`, {
+        method: 'POST',
+        headers: { Cookie: accountCookie, Origin: process.env.CLIENT_ORIGIN, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playlistId, name: 'Empty copy', useSecondAccount: false })
+      });
+      assert.equal(response.status, 422);
+      assert.equal((await response.json()).code, 'EMPTY_PLAYLIST');
+      assert.deepEqual(writes, [], 'empty sources must not create destination playlists');
+    }
 
     const copyResponse = await originalFetch(`${base}/api/transfer`, {
       method: 'POST',

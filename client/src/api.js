@@ -15,6 +15,8 @@ export async function api(path, options = {}) {
 
   if (!response.ok) {
     const error = new Error(data.message || 'Something went wrong.');
+    error.status = response.status;
+    error.code = data.code;
     error.partial = data.partial;
     throw error;
   }

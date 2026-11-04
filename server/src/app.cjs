@@ -250,7 +250,7 @@ app.use((error, _req, res, _next) => {
   if (error instanceof SyntaxError && error.status === 400) return res.status(400).json({ message: 'Invalid JSON body.' });
   if (!(error instanceof SpotifyError)) console.error(error);
   const status = error.status >= 400 && error.status < 600 ? error.status : 500;
-  res.status(status).json({ message: error instanceof SpotifyError ? error.message : 'Server error. Please try again.', ...(error.partial ? { partial: error.partial } : {}) });
+  res.status(status).json({ message: error instanceof SpotifyError ? error.message : 'Server error. Please try again.', ...(error instanceof SpotifyError && error.code ? { code: error.code } : {}), ...(error.partial ? { partial: error.partial } : {}) });
 });
 
 module.exports = app;

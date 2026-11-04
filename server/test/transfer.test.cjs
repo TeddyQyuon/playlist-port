@@ -110,7 +110,7 @@ for (const { label, items } of [
 
     await assert.rejects(
       transferPlaylist({ playlistId: 'source123', name: 'No empty copy', sourceAccount, destinationAccount, request }),
-      (error) => /empty|no transferable/i.test(error.message)
+      (error) => error.status === 422 && error.code === (items.length ? 'NO_TRANSFERABLE_ITEMS' : 'EMPTY_PLAYLIST') && /empty|no transferable/i.test(error.message)
     );
     assert.deepEqual(writes, [], 'source validation must finish before creating a destination playlist');
   });
