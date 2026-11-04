@@ -6,6 +6,8 @@ import {
   FiSearch, FiShield, FiSliders, FiSun, FiUser, FiUsers, FiWifiOff, FiX
 } from 'react-icons/fi';
 import { api } from './api.js';
+import { parseSpotifyLink } from './spotify-link.js';
+import './source-links.css';
 import TransferProgress from './TransferProgress.jsx';
 import { transferQueue } from './transfer-queue.js';
 import { readLocalItem, readSessionItem, removeSessionItem, writeLocalItem, writeSessionItem } from './storage.js';
@@ -276,7 +278,7 @@ function PlaylistArt({ playlist, className = '' }) {
 }
 
 function PlaylistRow({ playlist, selected, onToggle, onInspect, liked = false }) {
-  const ownerLabel = liked ? 'Collection' : playlist.isOwner ? 'You' : 'Followed';
+  const ownerLabel = liked ? 'Collection' : playlist.sourceType === 'album' ? 'Album' : playlist.isOwner ? 'You' : 'Followed';
   const details = liked
     ? 'Saved tracks from your Spotify library'
     : `${playlist.count == null ? 'Track count checked at transfer' : `${playlist.count} ${playlist.count === 1 ? 'track' : 'tracks'}`} · by ${playlist.owner}`;
@@ -497,7 +499,7 @@ function TrackPreviewModal({ playlist, onClose, onToggleSelect, isSelected }) {
         <div className="modal-header">
           <PlaylistArt playlist={playlist} className="preview-modal-art" />
           <div className="preview-modal-title-wrap">
-            <span className="service-badge">Spotify Playlist</span>
+            <span className="service-badge">Spotify {playlist.sourceType === 'album' ? 'Album' : 'Playlist'}</span>
             <h3 id="track-preview-title">{playlist.name}</h3>
             <span className="preview-modal-owner">
               by {playlist.owner} · {playlist.count != null ? `${playlist.count} tracks` : 'Tracks verified during transfer'}
@@ -514,7 +516,7 @@ function TrackPreviewModal({ playlist, onClose, onToggleSelect, isSelected }) {
               <span className="metric-label">Items to copy</span>
             </div>
             <div className="preview-metric-box">
-              <span className="metric-num">{playlist.isOwner ? 'Your playlist' : 'Followed'}</span>
+              <span className="metric-num">{playlist.sourceType === 'album' ? 'Album' : playlist.isOwner ? 'Your playlist' : 'Followed'}</span>
               <span className="metric-label">Access type</span>
             </div>
             <div className="preview-metric-box">
@@ -530,7 +532,7 @@ function TrackPreviewModal({ playlist, onClose, onToggleSelect, isSelected }) {
           </div>
           {playlist.url && (
             <a href={playlist.url} target="_blank" rel="noreferrer" className="preview-spotify-link">
-              <SiSpotify aria-hidden="true" /> Open playlist in Spotify <FiExternalLink aria-hidden="true" />
+              <SiSpotify aria-hidden="true" /> Open {playlist.sourceType === 'album' ? 'album' : 'playlist'} in Spotify <FiExternalLink aria-hidden="true" />
             </a>
           )}
         </div>
@@ -656,7 +658,8 @@ export default function App() {
       return 0;
     });
 
-  const isPastedSpotifyUrl = /(?:playlist\/|playlist:)[A-Za-z0-9_-]{1,64}/.test(playlistQuery.trim());
+  const pastedSource = parseSpotifyLink(playlistQuery);
+  const isPastedSpotifyUrl = Boolean(pastedSource);
   const likedVisible = activeTab === 'selected'
     ? selectedIds.includes('liked-songs')
     : activeTab !== 'followed' && (!query || 'liked songs'.includes(query));
@@ -773,6 +776,13 @@ export default function App() {
     transferViewRef.current?.focus({ preventScroll: true });
   }, [currentStep]);
 
+  // Restore a pasted source after Spotify redirects back to this tab.
+  useEffect(() => {
+    if (!session.source) return;
+    const pending = readSessionItem('playlist-port.pending-source');
+    if (pending) loadPastedPlaylist(null, pending);
+  }, [session.source?.id]);
+
   // Transfer elapsed timer
   useEffect(() => {
     if (!transferring) return undefined;
@@ -824,7 +834,11 @@ export default function App() {
     setPlaylistsLoading(true);
     try {
       const data = await api(`/playlists?offset=${offset}`);
-      setPlaylists((current) => replace ? data.items : [...current, ...data.items]);
+      setPlaylists((current) => {
+        const retained = replace ? current.filter((item) => item.importedFromLink) : current;
+        const retainedIds = new Set(retained.map((item) => item.id));
+        return [...retained, ...data.items.filter((item) => !retainedIds.has(item.id))];
+      });
       setNextOffset(data.nextOffset);
       setPlaylistTotal(Number.isFinite(data.total) ? data.total : null);
     } catch (err) {
@@ -911,29 +925,37 @@ export default function App() {
     setNewName('');
   }
 
-  async function loadPastedPlaylist(event) {
+  async function loadPastedPlaylist(event, value = playlistQuery) {
     event?.preventDefault();
-    const trimmed = playlistQuery.trim();
-    if (!trimmed) return;
-    const match = trimmed.match(/(?:playlist\/|playlist:)([A-Za-z0-9_-]{1,64})/);
-    if (!match) {
-      if (/(open\.spotify\.com|spotify:)/i.test(trimmed)) {
-        setError('That link does not look like a Spotify playlist. Try a link such as https://open.spotify.com/playlist/…');
-      }
+    const trimmed = value.trim();
+    if (!trimmed || urlLoading) return;
+    const source = parseSpotifyLink(trimmed);
+    if (!source || source.error) {
+      setError(source?.error || 'Paste a Spotify playlist or album link.');
       return;
     }
+    setPlaylistQuery(trimmed);
+    writeSessionItem('playlist-port.pending-source', trimmed);
+    if (!session.source) {
+      setCurrentStep(1);
+      setNotice(`Connect Spotify to load this ${source.type}. Your link will be kept for this tab.`);
+      scrollToWorkspace(true);
+      return;
+    }
+    removeSessionItem('playlist-port.pending-source');
     setUrlLoading(true);
     setError('');
     try {
-      const data = await api(`/playlist/${match[1]}`);
-      setPlaylists((current) => {
-        if (current.some((p) => p.id === data.id)) return current;
-        return [data, ...current];
-      });
-      togglePlaylistSelection(data.id, data);
+      const data = { ...await api(`/${source.type}/${source.id}`), importedFromLink: true };
+      setPlaylists((current) => [data, ...current.filter((item) => item.id !== data.id)]);
+      if (!selectedIds.includes(data.id)) togglePlaylistSelection(data.id, data);
+      setActiveTab('all');
+      setCurrentStep(2);
       setPlaylistQuery('');
+      setHeroUrlInput('');
+      setNotice(source.type === 'album' ? `Album loaded: ${data.name}. Its tracks will be copied into a new private playlist.` : `Playlist loaded: ${data.name}.`);
     } catch (err) {
-      setError(err.message || 'Could not load that playlist.');
+      setError(err.message || `Could not load that ${source.type}.`);
     } finally {
       setUrlLoading(false);
     }
@@ -1018,7 +1040,8 @@ export default function App() {
         transfer: (playlist) => api('/transfer', {
           method: 'POST',
           body: JSON.stringify({
-            playlistId: playlist.id,
+            playlistId: playlist.sourceId || playlist.id,
+            sourceType: playlist.sourceType || 'playlist',
             name: (selectedPlaylists.length === 1
               ? newName.trim()
               : (customNames[playlist.id] || `${playlist.name} (copy)`)).slice(0, 100),
@@ -1140,17 +1163,12 @@ export default function App() {
             </div>
 
             <div className="hero-quick-transfer">
-              <span className="hero-quick-label">Or paste a Spotify playlist link directly:</span>
+              <span className="hero-quick-label">Or paste a Spotify playlist or album link:</span>
               <form
                 className="hero-quick-form"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!heroUrlInput.trim()) return;
-                  setPlaylistQuery(heroUrlInput.trim());
+                onSubmit={(event) => {
+                  loadPastedPlaylist(event, heroUrlInput);
                   scrollToWorkspace(true);
-                  if (session.source) {
-                    setCurrentStep(2);
-                  }
                 }}
               >
                 <FiLink2 aria-hidden="true" />
@@ -1159,7 +1177,7 @@ export default function App() {
                   value={heroUrlInput}
                   onChange={(e) => setHeroUrlInput(e.target.value)}
                   placeholder="https://open.spotify.com/playlist/..."
-                  aria-label="Paste Spotify playlist URL"
+                  aria-label="Paste Spotify playlist or album URL"
                 />
                 <button type="submit" className="btn btn-primary btn-sm">
                   Transfer <FiArrowRight aria-hidden="true" />
@@ -1447,8 +1465,8 @@ export default function App() {
                   <div className="step1-link-meta">
                     <FiLink2 aria-hidden="true" />
                     <div>
-                      <strong>Transfer a public Spotify playlist via link</strong>
-                      <p>Paste a public playlist link to load it without signing into the source account.</p>
+                      <strong>Load a Spotify playlist or album via link</strong>
+                      <p>Paste a playlist or album link, then connect Spotify to load its tracks. Albums are copied into new private playlists.</p>
                     </div>
                   </div>
                   <form
@@ -1463,10 +1481,10 @@ export default function App() {
                       value={playlistQuery}
                       onChange={(e) => setPlaylistQuery(e.target.value)}
                       placeholder="https://open.spotify.com/playlist/..."
-                      aria-label="Paste public Spotify playlist link"
+                      aria-label="Paste Spotify playlist or album link"
                     />
                     <button type="submit" className="btn btn-primary btn-sm" disabled={urlLoading || !playlistQuery.trim()}>
-                      {urlLoading ? 'Loading…' : 'Load Playlist'}
+                      {urlLoading ? 'Loading…' : 'Load link'}
                     </button>
                   </form>
                 </div>
@@ -1542,7 +1560,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  <form className="playlist-search" onSubmit={loadPastedPlaylist} role="search">
+                  <form className="playlist-search" onSubmit={(event) => { event.preventDefault(); if (pastedSource) loadPastedPlaylist(event); }} role="search">
                     <FiSearch aria-hidden="true" />
                     <label className="sr-only" htmlFor="playlist-search">Search playlists or paste a Spotify link</label>
                     <input
@@ -1556,7 +1574,7 @@ export default function App() {
                       aria-keyshortcuts="/"
                     />
                     {isPastedSpotifyUrl ? (
-                      <button type="submit" className="btn btn-primary btn-xs" disabled={urlLoading} aria-label="Load playlist from link">
+                      <button type="submit" className="btn btn-primary btn-xs" disabled={urlLoading || Boolean(pastedSource?.error)} aria-label="Load Spotify link">
                         {urlLoading ? <span className="button-spinner" aria-hidden="true" /> : <><FiLink2 aria-hidden="true" /> Load</>}
                       </button>
                     ) : playlistQuery ? (
@@ -1567,6 +1585,17 @@ export default function App() {
                       <kbd className="search-kbd" aria-hidden="true">/</kbd>
                     )}
                   </form>
+
+                  {pastedSource && (
+                    <div className={`spotify-link-panel ${pastedSource.error ? 'is-error' : ''}`}>
+                      <strong>{pastedSource.error ? 'Check this link' : `Spotify ${pastedSource.type} link`}</strong>
+                      <p>{pastedSource.error || (pastedSource.type === 'album'
+                        ? 'Load this album to copy its tracks into a new private playlist, in album order.'
+                        : 'Load this playlist to add it to your selection.')}</p>
+                      {!pastedSource.error && <button type="button" className="btn btn-primary btn-sm" disabled={urlLoading} onClick={loadPastedPlaylist}>{urlLoading ? 'Loading…' : `Load ${pastedSource.type}`}</button>}
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPlaylistQuery(''); setError(''); }}>Clear link</button>
+                    </div>
+                  )}
 
                   {/* Batch Selection Live Summary */}
                   <div className={`selection-summary-bar ${selectedIds.length > 0 ? 'has-selection' : ''}`}>
@@ -1657,7 +1686,7 @@ export default function App() {
                       ))
                     )}
 
-                    {!playlistsLoading && shownPlaylists.length === 0 && !likedVisible && (
+                    {!isPastedSpotifyUrl && !playlistsLoading && shownPlaylists.length === 0 && !likedVisible && (
                       <div className="empty-panel">
                         <FiMusic aria-hidden="true" />
                         <p>
