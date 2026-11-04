@@ -1,0 +1,18 @@
+.spotify-link-panel {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-5);
+  color: var(--text);
+  background: var(--surface-subtle);
+  border: solid var(--space-0-5) var(--border-strong);
+  border-radius: var(--radius);
+}
+.spotify-link-panel p { margin: 0; color: var(--text-2); line-height: var(--leading-normal); overflow-wrap: anywhere; }
+.spotify-link-panel > strong { font-size: var(--text-base); }
+.spotify-link-panel .btn { justify-self: start; }
+.spotify-link-panel.is-error { border-color: var(--red-border); }
+.spotify-link-panel.is-error > strong { color: var(--red); }
+.empty-panel p, .inline-alert { max-width: 100%; min-width: 0; overflow-wrap: anywhere; }
+/* Keep the existing floating demo notice from covering the library controls. */
+.page-shell:has(.step-view-2) ~ [data-demo-badge='portfolio'] { display: none !important; }
