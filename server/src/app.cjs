@@ -215,8 +215,28 @@ app.get('/api/playlist/:id', wrap(async (req, res) => {
   }
 }));
 
+app.get('/api/album/:id', wrap(async (req, res) => {
+  if (!req.session.source) throw new SpotifyError('Connect a source Spotify account first.', 401);
+  const id = req.params.id;
+  if (!/^[A-Za-z0-9]{1,64}$/.test(id)) throw new SpotifyError('Invalid album ID or link.', 400);
+  const item = await spotifyRequest(req.session.source, `/albums/${id}`);
+  if (!item.id || !item.name) throw new SpotifyError('Spotify returned an unexpected album response.');
+  res.json({
+    id: `album-${item.id}`,
+    sourceId: item.id,
+    sourceType: 'album',
+    name: item.name,
+    count: item.total_tracks ?? null,
+    owner: item.artists?.map((artist) => artist.name).filter(Boolean).join(', ') || 'Spotify',
+    image: item.images?.[0]?.url || null,
+    isOwner: false,
+    canCopy: true,
+    url: item.external_urls?.spotify || `https://open.spotify.com/album/${item.id}`
+  });
+}));
+
 app.post('/api/transfer', wrap(async (req, res) => {
-  const { playlistId, name, useSecondAccount } = req.body || {};
+  const { playlistId, sourceType, name, useSecondAccount } = req.body || {};
   if (!req.session.source) throw new SpotifyError('Connect a source Spotify account first.', 401);
   if (typeof name !== 'string') throw new SpotifyError('Enter a playlist name.', 400);
   if (typeof useSecondAccount !== 'boolean') throw new SpotifyError('Choose the destination account.', 400);
@@ -224,6 +244,7 @@ app.post('/api/transfer', wrap(async (req, res) => {
   if (!destinationAccount) throw new SpotifyError('Connect a destination Spotify account first.', 401);
   const result = await transferPlaylist({
     playlistId,
+    sourceType,
     name: name.trim(),
     sourceAccount: req.session.source,
     destinationAccount,
