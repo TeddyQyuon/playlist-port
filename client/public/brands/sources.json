@@ -1,0 +1,54 @@
+{
+  "reviewed": "2026-11-04",
+  "notes": "Official publisher artwork, local copies; original geometry and colors retained. SVG variants are supplied by each vendor; CSS never filters or recolors them. App icons preserve their complete artwork. Deezer newsroom confirms purple-heart identity since November 2023.",
+  "assets": [
+    {
+      "file": "spotify-black.svg",
+      "url": "https://developer.spotify.com/images/guidelines/design/2024-spotify-logo-icon.zip",
+      "member": "Primary_Logo_Black_RGB.svg",
+      "sha256": "5595afea0e6f009b1dd8529511204d0fd5ca035e49c85409d1697063b3c27a05"
+    },
+    {
+      "file": "spotify-white.svg",
+      "url": "https://developer.spotify.com/images/guidelines/design/2024-spotify-logo-icon.zip",
+      "member": "Primary_Logo_White_RGB.svg",
+      "sha256": "8929d148f54cede78f0f36ce90df815e5ea5e5559e7faeccad3669302ef2daa1"
+    },
+    {
+      "file": "spotify-green.svg",
+      "url": "https://developer.spotify.com/images/guidelines/design/2024-spotify-logo-icon.zip",
+      "member": "Primary_Logo_Green_RGB.svg",
+      "sha256": "ead72f82725038389cca09f439fdb7807640e122500c934f2500c7036bf40dbb"
+    },
+    {
+      "file": "apple-music.png",
+      "url": "https://www.apple.com/v/apple-music/ah/images/overview/apple_music_app_icon__ehrv06ssfpea_large.png",
+      "member": null,
+      "sha256": "f213cfdf423ae079d94004b1063476602466eb3527b854049ac08ecbda4419be"
+    },
+    {
+      "file": "youtube-music.png",
+      "url": "https://music.youtube.com/img/favicon_144.png",
+      "member": null,
+      "sha256": "11e1e36b0a673c2d1182974250946979593c8a756a44851d0f4529728c1a4709"
+    },
+    {
+      "file": "tidal.svg",
+      "url": "https://tidal.com/",
+      "member": "head mask-icon SVG",
+      "sha256": "d0f0d8dcc1a834ae39eb951d4fd112b70474f2c1e5007ab27b52dd687e757556"
+    },
+    {
+      "file": "tidal-white.svg",
+      "url": "https://tidal.com/",
+      "member": "white app-loader SVG (animation style excluded)",
+      "sha256": "cf43d3123dbe06bae5b7d661218e4b5255379bd6563f33b190cc5a2e50590beb"
+    },
+    {
+      "file": "deezer.jpg",
+      "url": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/a5/80/8f/a5808f91-e80e-3eb5-4dff-5f1cadea57dd/AppIcon-0-0-1x_U007epad-0-11-0-0-85-220.png/512x512bb.jpg",
+      "member": "DEEZER SA official App Store app artwork; lookup id 292738169",
+      "sha256": "22d4e5c05e709f13efb30e36afc2eba6d790714f3c8622307ee33a1314ad602a"
+    }
+  ]
+}
