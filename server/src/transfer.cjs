@@ -68,6 +68,25 @@ async function readLikedSongs(account, request) {
   return { uris, skipped };
 }
 
+async function readAlbumItems(account, id, request) {
+  const uris = [];
+  let skipped = 0;
+  let offset = 0;
+  for (let page = 0; page < 2000; page += 1) {
+    const result = await request(account, `/albums/${id}/tracks?limit=50&offset=${offset}`);
+    if (!Array.isArray(result.items)) throw new SpotifyError('Spotify returned an unexpected album response.');
+    for (const track of result.items) {
+      const uri = track?.linked_from?.uri || track?.uri;
+      if (!track?.is_local && track?.is_playable !== false && /^spotify:track:[A-Za-z0-9]+$/.test(uri || '')) uris.push(uri);
+      else skipped += 1;
+    }
+    offset += result.items.length;
+    if (!result.next) return { uris, skipped };
+    if (!result.items.length) throw new SpotifyError('Spotify returned an incomplete album page. Please try again.');
+  }
+  throw new SpotifyError('This album is too large to copy in one transfer.');
+}
+
 async function readPublicPlaylistItems(playlistId) {
   let res;
   try {
@@ -120,7 +139,8 @@ async function readPublicPlaylistItems(playlistId) {
   return { uris, skipped };
 }
 
-async function transferPlaylist({ playlistId, name, sourceAccount, destinationAccount, request = spotifyRequest }) {
+async function transferPlaylist({ playlistId, sourceType = 'playlist', name, sourceAccount, destinationAccount, request = spotifyRequest }) {
+  if (!['playlist', 'album'].includes(sourceType)) throw new SpotifyError('Choose a Spotify playlist or album.', 400);
   if (typeof playlistId !== 'string' || !VALID_ID.test(playlistId) || typeof name !== 'string' || !name.trim() || name.length > 100) {
     throw new SpotifyError('Choose a playlist and enter a name of at most 100 characters.', 400);
   }
@@ -131,7 +151,17 @@ async function transferPlaylist({ playlistId, name, sourceAccount, destinationAc
   let isEmbedFallback = false;
   let originalTotal = null;
 
-  if (playlistId === 'liked-songs') {
+  if (sourceType === 'album') {
+    const album = await request(sourceAccount, `/albums/${playlistId}`);
+    playlistDescription = `Tracks from ${album.name || 'a Spotify album'}`.slice(0, 300);
+    const tracks = await readAlbumItems(sourceAccount, playlistId, request);
+    uris = tracks.uris;
+    skipped = tracks.skipped;
+    originalTotal = album.total_tracks ?? null;
+    if (Number.isSafeInteger(originalTotal) && originalTotal !== uris.length + skipped) {
+      throw new SpotifyError('Spotify returned an incomplete album tracklist. No copy was created. Please try again.');
+    }
+  } else if (playlistId === 'liked-songs') {
     playlistDescription = 'Transferred from Liked Songs';
     const res = await readLikedSongs(sourceAccount, request);
     uris = res.uris;
@@ -165,8 +195,8 @@ async function transferPlaylist({ playlistId, name, sourceAccount, destinationAc
   if (uris.length === 0) {
     const error = new SpotifyError(
       skipped
-        ? 'This playlist has no transferable tracks or episodes. Its items are local or unavailable. No copy was created.'
-        : 'This playlist is empty. Choose a playlist with tracks or episodes. No copy was created.',
+        ? `This ${sourceType} has no transferable tracks or episodes. Its items are local or unavailable. No copy was created.`
+        : `This ${sourceType} is empty. Choose a ${sourceType} with tracks. No copy was created.`,
       422
     );
     error.code = skipped ? 'NO_TRANSFERABLE_ITEMS' : 'EMPTY_PLAYLIST';
