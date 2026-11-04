@@ -163,12 +163,14 @@ async function transferPlaylist({ playlistId, name, sourceAccount, destinationAc
   }
 
   if (uris.length === 0) {
-    throw new SpotifyError(
+    const error = new SpotifyError(
       skipped
         ? 'This playlist has no transferable tracks or episodes. Its items are local or unavailable. No copy was created.'
         : 'This playlist is empty. Choose a playlist with tracks or episodes. No copy was created.',
       422
     );
+    error.code = skipped ? 'NO_TRANSFERABLE_ITEMS' : 'EMPTY_PLAYLIST';
+    throw error;
   }
 
   const newPlaylist = await request(destinationAccount, '/me/playlists', {

@@ -6,6 +6,7 @@ import {
   FiSearch, FiShield, FiSliders, FiSun, FiUser, FiUsers, FiWifiOff, FiX
 } from 'react-icons/fi';
 import { api } from './api.js';
+import { transferQueue } from './transfer-queue.js';
 import { readLocalItem, readSessionItem, removeSessionItem, writeLocalItem, writeSessionItem } from './storage.js';
 
 const STEP_LABELS = [
@@ -597,6 +598,7 @@ export default function App() {
   const [acceptedCloseMatches, setAcceptedCloseMatches] = useState({});
   const [activeTransferIndex, setActiveTransferIndex] = useState(0);
   const [transferResults, setTransferResults] = useState([]);
+  const [skippedPlaylists, setSkippedPlaylists] = useState([]);
   const [rateLimitCountdown, setRateLimitCountdown] = useState(0);
   const [customNames, setCustomNames] = useState({});
 
@@ -650,7 +652,7 @@ export default function App() {
     : activeTab !== 'followed' && (!query || 'liked songs'.includes(query));
   const loadedSuffix = nextOffset !== null ? '+' : '';
   const nameMissing = Boolean(primarySelected) && !newName.trim();
-  const readyToCopy = session.configured && session.source && primarySelected && primarySelected.count !== 0 && newName.trim() && !sameDestination && (!useSecondAccount || session.destination);
+  const readyToCopy = session.configured && session.source && primarySelected && newName.trim() && !sameDestination && (!useSecondAccount || session.destination);
 
   // Online / offline listeners
   useEffect(() => {
@@ -963,6 +965,8 @@ export default function App() {
   }
 
   function resetTransfer() {
+    setSkippedPlaylists([]);
+    setTransferResults([]);
     setResult(null);
     setPartial(null);
     setError('');
@@ -985,87 +989,60 @@ export default function App() {
     setCurrentStep(5);
     scrollToWorkspace(true);
 
-    const completedList = [];
-    let hadError = false;
+    setSkippedPlaylists([]);
+    setActiveTransferIndex(0);
 
-    for (let i = 0; i < selectedPlaylists.length; i++) {
-      if (cancelTransferRef.current) break;
-      setActiveTransferIndex(i);
-      const playlist = selectedPlaylists[i];
-      const targetName = (selectedPlaylists.length === 1
-        ? newName.trim()
-        : (customNames[playlist.id] || `${playlist.name} (copy)`)).slice(0, 100);
-
-      try {
-        const completed = await api('/transfer', {
+    try {
+      const outcome = await transferQueue({
+        playlists: selectedPlaylists,
+        shouldCancel: () => cancelTransferRef.current,
+        onActive: setActiveTransferIndex,
+        onResult: setTransferResults,
+        transfer: (playlist) => api('/transfer', {
           method: 'POST',
           body: JSON.stringify({
             playlistId: playlist.id,
-            name: targetName,
+            name: (selectedPlaylists.length === 1
+              ? newName.trim()
+              : (customNames[playlist.id] || `${playlist.name} (copy)`)).slice(0, 100),
             useSecondAccount
           })
-        });
+        })
+      });
+      const completedList = outcome.completed;
+      setSkippedPlaylists(outcome.skipped);
 
-        if (completed.skipped > 0) {
-          completed.closeMatches = [
-            {
-              id: `${playlist.id}-cm-1`,
-              title: `${playlist.name} Track #2 (Album Remaster)`,
-              artist: 'Verified Catalog Artist',
-              matchType: 'Remaster Edition',
-              reason: 'Single release replaced with destination album catalog version'
-            }
-          ];
-        }
-
-        completedList.push(completed);
-        setTransferResults([...completedList]);
-      } catch (err) {
-        hadError = true;
-        const msg = err.message || 'Transfer failed.';
+      if (outcome.error) {
+        const msg = outcome.error.message || 'Transfer failed.';
         setError(msg);
-        if (msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('429') || msg.toLowerCase().includes('too many requests')) {
-          setRateLimitCountdown(24);
-        }
-        if (err.partial) {
-          completedList.push(err.partial);
-          setTransferResults([...completedList]);
-          setPartial(err.partial);
-        }
-        break;
+        if (outcome.error.status === 429) setRateLimitCountdown(24);
+        if (outcome.error.partial) setPartial(outcome.error.partial);
       }
-    }
 
-    transferLock.current = false;
-    setTransferring(false);
+      if (outcome.cancelled) {
+        setNotice('Transfer cancelled. Saved items remain in your destination account.');
+      }
 
-    if (cancelTransferRef.current) {
-      setNotice('Transfer cancelled. Saved items remain in your destination account.');
       if (completedList.length > 0) {
-        setPartial(completedList[completedList.length - 1]);
-        setCurrentStep(6);
-      } else {
-        setCurrentStep(4);
+        setResult({
+          name: completedList.length === 1 ? completedList[0].name : `${completedList.length} Playlists`,
+          url: completedList[0].url,
+          copied: completedList.reduce((acc, c) => acc + (c.copied || 0), 0),
+          skipped: completedList.reduce((acc, c) => acc + (c.skipped || 0), 0),
+          total: completedList.reduce((acc, c) => acc + (c.total || 0), 0),
+          verified: completedList.every((c) => c.verified),
+          items: completedList,
+          closeMatches: completedList.flatMap((c) => c.closeMatches || [])
+        });
       }
-    } else if (completedList.length > 0) {
-      const totalCopied = completedList.reduce((acc, c) => acc + (c.copied || 0), 0);
-      const totalSkipped = completedList.reduce((acc, c) => acc + (c.skipped || 0), 0);
-      const totalItems = completedList.reduce((acc, c) => acc + (c.total || 0), 0);
-      const allCloseMatches = completedList.flatMap((c) => c.closeMatches || []);
-      const compositeResult = {
-        name: completedList.length === 1 ? completedList[0].name : `${completedList.length} Playlists`,
-        url: completedList[0].url,
-        copied: totalCopied,
-        skipped: totalSkipped,
-        total: totalItems,
-        verified: completedList.every((c) => c.verified),
-        items: completedList,
-        closeMatches: allCloseMatches
-      };
-      setResult(compositeResult);
-      setCurrentStep(6);
-    } else if (!hadError) {
+      // Every outcome leaves the progress screen, including a first-item error.
+      setCurrentStep(completedList.length || outcome.skipped.length || outcome.error?.partial ? 6 : 4);
+    } catch (err) {
+      setError(err.message || 'Transfer failed.');
       setCurrentStep(4);
+    } finally {
+      transferLock.current = false;
+      setTransferring(false);
     }
   }
 
@@ -1090,7 +1067,7 @@ export default function App() {
   const estimatedSeconds = Math.max(4, Math.ceil(totalItemsCount * 0.12));
   const remainingSeconds = Math.max(0, estimatedSeconds - transferElapsed);
   const completedTracksSoFar = transferResults.reduce((acc, r) => acc + (r.copied || 0) + (r.skipped || 0), 0);
-  const activePlaylistItems = selectedPlaylists[activeTransferIndex]?.count || 30;
+  const activePlaylistItems = selectedPlaylists[activeTransferIndex]?.count ?? 30;
   const simulatedActiveProgress = Math.min(activePlaylistItems, Math.round((transferElapsed % 8) * (activePlaylistItems / 8)));
   const tracksProcessedDisplay = Math.min(totalItemsCount, completedTracksSoFar + (transferring ? simulatedActiveProgress : 0));
   const progressPercent = Math.min(98, Math.max(8, Math.round(((activeTransferIndex + (transferElapsed / Math.max(4, estimatedSeconds / Math.max(1, selectedPlaylists.length)))) / Math.max(1, selectedPlaylists.length)) * 100)));
@@ -2050,7 +2027,7 @@ export default function App() {
                       const isQueued = idx > activeTransferIndex;
                       const plResult = transferResults[idx];
                       const plTracks = pl.count ?? 30;
-                      const plPercent = isPast ? 100 : isCurrent ? Math.min(95, Math.max(10, Math.round((simulatedActiveProgress / plTracks) * 100))) : 0;
+                      const plPercent = isPast ? 100 : isCurrent ? Math.min(95, Math.max(10, Math.round((simulatedActiveProgress / Math.max(1, plTracks)) * 100))) : 0;
 
                       return (
                         <div key={pl.id} className={`per-playlist-progress-item ${isCurrent ? 'is-active' : isPast ? 'is-done' : 'is-queued'}`}>
@@ -2059,7 +2036,9 @@ export default function App() {
                             <div className="per-playlist-names">
                               <strong>{pl.name}</strong>
                               <span>
-                                {isPast
+                                {plResult?.status === 'skipped'
+                                  ? plResult.message
+                                  : isPast
                                   ? `${plResult?.copied ?? plTracks} tracks copied · Verified`
                                   : isCurrent
                                     ? `Processing items (${Math.min(plTracks, simulatedActiveProgress)} of ${plTracks} tracks)...`
@@ -2067,7 +2046,7 @@ export default function App() {
                               </span>
                             </div>
                             <span className="per-playlist-badge">
-                              {isPast ? <><FiCheck aria-hidden="true" /> Done</> : isCurrent ? <><FiRefreshCw className="spin" aria-hidden="true" /> Active</> : 'Queued'}
+                              {plResult?.status === 'skipped' ? 'Skipped' : isPast ? <><FiCheck aria-hidden="true" /> Done</> : isCurrent ? <><FiRefreshCw className="spin" aria-hidden="true" /> Active</> : 'Queued'}
                             </span>
                           </div>
                           <div className="per-playlist-bar-track" aria-hidden="true">
@@ -2113,6 +2092,23 @@ export default function App() {
             {/* STEP 6: RESULTS */}
             {currentStep === 6 && (
               <div className="step-view step-view-6">
+                {result && partial?.url && (
+                  <p className="inline-note inline-note-warning">
+                    <FiAlertTriangle aria-hidden="true" />
+                    <span>“{partial.name}” stopped after copying {partial.copied} of {partial.total} items. <a href={partial.url} target="_blank" rel="noreferrer">Open partial playlist</a></span>
+                  </p>
+                )}
+                {skippedPlaylists.length > 0 && (
+                  <div className="inline-note inline-note-warning" role="status">
+                    <FiInfo aria-hidden="true" />
+                    <div>
+                      <strong>{skippedPlaylists.length} {skippedPlaylists.length === 1 ? 'playlist skipped' : 'playlists skipped'}</strong>
+                      <ul>
+                        {skippedPlaylists.map((playlist) => <li key={playlist.id}>“{playlist.name}”: {playlist.message}</li>)}
+                      </ul>
+                    </div>
+                  </div>
+                )}
                 {result ? (
                   <div className="result-panel result-success" role="status">
                     <div className="result-hero">
@@ -2296,7 +2292,8 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="result-panel">
-                    <p>No transfer results to show.</p>
+                    <h3>{skippedPlaylists.length ? 'No playlists copied' : 'No transfer results to show'}</h3>
+                    {skippedPlaylists.length > 0 && <p>No copies were created. Review the skipped playlists above or choose another playlist.</p>}
                     <button type="button" className="btn btn-primary" onClick={() => setCurrentStep(2)}>
                       Pick a playlist
                     </button>
