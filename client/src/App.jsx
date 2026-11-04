@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { SiApplemusic, SiDeezer, SiSpotify, SiTidal, SiYoutube, SiYoutubemusic } from 'react-icons/si';
+import { AppleMusicIcon as SiApplemusic, DeezerIcon as SiDeezer, SpotifyIcon as SiSpotify, TidalIcon as SiTidal, YouTubeMusicIcon as SiYoutubemusic } from './BrandIcons.jsx';
 import {
   FiAlertTriangle, FiArrowLeft, FiArrowRight, FiCheck, FiCheckCircle, FiChevronDown, FiCopy,
   FiDownload, FiExternalLink, FiHeart, FiInfo, FiLink2, FiLock, FiMoon, FiMusic, FiPlus, FiRefreshCw,
@@ -22,11 +22,11 @@ const STEP_LABELS = [
 ];
 
 const SOURCE_SERVICES = [
-  { id: 'spotify', name: 'Spotify', Icon: SiSpotify, ready: true, description: 'Direct OAuth 2.0 with Spotify API', color: '#1ed760' },
-  { id: 'applemusic', name: 'Apple Music', Icon: SiApplemusic, ready: false, badge: 'Coming soon', description: 'MusicKit library sync', color: '#fa2d48' },
-  { id: 'youtubemusic', name: 'YouTube Music', Icon: SiYoutubemusic, ready: false, badge: 'Coming soon', description: 'YouTube Data API transfer', color: '#ff0000' },
-  { id: 'tidal', name: 'TIDAL', Icon: SiTidal, ready: false, badge: 'Roadmap', description: 'Lossless catalog matching', color: '#00e5ff' },
-  { id: 'deezer', name: 'Deezer', Icon: SiDeezer, ready: false, badge: 'Roadmap', description: 'Deezer Connect integration', color: '#a238ff' }
+  { id: 'spotify', name: 'Spotify', Icon: SiSpotify, ready: true, description: 'Direct OAuth 2.0 with Spotify API' },
+  { id: 'applemusic', name: 'Apple Music', Icon: SiApplemusic, ready: false, badge: 'Coming soon', description: 'MusicKit library sync' },
+  { id: 'youtubemusic', name: 'YouTube Music', Icon: SiYoutubemusic, ready: false, badge: 'Coming soon', description: 'YouTube Data API transfer' },
+  { id: 'tidal', name: 'TIDAL', Icon: SiTidal, ready: false, badge: 'Roadmap', description: 'Lossless catalog matching' },
+  { id: 'deezer', name: 'Deezer', Icon: SiDeezer, ready: false, badge: 'Roadmap', description: 'Deezer Connect integration' }
 ];
 
 const filters = [
@@ -441,7 +441,7 @@ function RoadmapModal({ service, onClose, onConnectSpotify }) {
     <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="roadmap-modal-title">
       <div className="modal-dialog roadmap-modal" ref={modalRef} tabIndex={-1}>
         <div className="modal-header">
-          <span className="roadmap-service-icon" style={{ color: service.color || 'var(--accent)' }}>
+          <span className="roadmap-service-icon">
             <service.Icon aria-hidden="true" />
           </span>
           <div className="roadmap-title-wrap">
