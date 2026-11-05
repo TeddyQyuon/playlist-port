@@ -2,6 +2,20 @@ const { SpotifyError, spotifyRequest } = require('./spotify.cjs');
 
 const VALID_ID = /^[A-Za-z0-9_-]{1,64}$/;
 const VALID_URI = /^spotify:(track|episode):[A-Za-z0-9]+$/;
+// Spotify's public embed page lists at most this many items, whatever the playlist size.
+const EMBED_PREVIEW_LIMIT = 100;
+
+function previewLimitError(total, read) {
+  const advice = 'In Spotify, add its songs to a playlist you own, then copy that playlist.';
+  const reason = total == null || total < read
+    ? `Spotify only shares the first ${EMBED_PREVIEW_LIMIT} items of playlists you do not own and did not report this playlist's full size`
+    : read >= EMBED_PREVIEW_LIMIT
+      ? `Spotify only shares the first ${EMBED_PREVIEW_LIMIT} of this playlist's ${total} items with apps that do not own it`
+      : `Spotify's public preview listed only ${read} of this playlist's ${total} items`;
+  const error = new SpotifyError(`${reason}, so no copy was created. ${advice}`, 422);
+  error.code = 'PREVIEW_LIMIT';
+  return error;
+}
 
 async function readItems(account, playlistId, request) {
   const uris = [];
@@ -106,40 +120,29 @@ async function readPublicPlaylistItems(playlistId) {
 
   const html = await res.text();
   const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+  let trackList;
+  try {
+    trackList = m ? JSON.parse(m[1]).props?.pageProps?.state?.data?.entity?.trackList : undefined;
+  } catch {}
+  // Without the ordered track list there is nothing reliable to copy. Scanning the
+  // page for track URIs would pick up unrelated items and lose order and duplicates.
+  if (!Array.isArray(trackList)) {
+    throw new SpotifyError('Could not read this playlist from Spotify. No copy was created. Please try again.');
+  }
+
   const uris = [];
   let skipped = 0;
-
-  if (m) {
-    try {
-      const d = JSON.parse(m[1]);
-      const trackList = d.props?.pageProps?.state?.data?.entity?.trackList;
-      if (Array.isArray(trackList)) {
-        for (const track of trackList) {
-          if (track && track.uri && VALID_URI.test(track.uri) && !track.is_local) {
-            uris.push(track.uri);
-          } else {
-            skipped += 1;
-          }
-        }
-      }
-    } catch {}
-  }
-
-  if (uris.length === 0) {
-    const matches = html.match(/spotify:(?:track|episode):[a-zA-Z0-9]+/g) || [];
-    const seen = new Set();
-    for (const uri of matches) {
-      if (!seen.has(uri) && VALID_URI.test(uri)) {
-        seen.add(uri);
-        uris.push(uri);
-      }
+  for (const track of trackList) {
+    if (track && track.uri && VALID_URI.test(track.uri) && !track.is_local) {
+      uris.push(track.uri);
+    } else {
+      skipped += 1;
     }
   }
-
   return { uris, skipped };
 }
 
-async function transferPlaylist({ playlistId, sourceType = 'playlist', name, sourceAccount, destinationAccount, request = spotifyRequest }) {
+async function transferPlaylist({ playlistId, sourceType = 'playlist', name, expectedTotal = null, sourceAccount, destinationAccount, request = spotifyRequest }) {
   if (!['playlist', 'album'].includes(sourceType)) throw new SpotifyError('Choose a Spotify playlist or album.', 400);
   if (typeof playlistId !== 'string' || !VALID_ID.test(playlistId) || typeof name !== 'string' || !name.trim() || name.length > 100) {
     throw new SpotifyError('Choose a playlist and enter a name of at most 100 characters.', 400);
@@ -186,6 +189,15 @@ async function transferPlaylist({ playlistId, sourceType = 'playlist', name, sou
         uris = pub.uris;
         skipped = pub.skipped;
         isEmbedFallback = true;
+        // The embed page stops at 100 items, so a full page alone proves nothing about
+        // the rest. Refuse before creating anything rather than copy only a prefix.
+        originalTotal = originalTotal ?? (Number.isSafeInteger(expectedTotal) ? expectedTotal : null);
+        const read = uris.length + skipped;
+        const complete = read < EMBED_PREVIEW_LIMIT
+          ? originalTotal == null || read >= originalTotal
+          : read === originalTotal;
+        if (!complete) throw previewLimitError(originalTotal, read);
+        originalTotal = Math.max(originalTotal ?? 0, read);
       } else {
         throw err;
       }

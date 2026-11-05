@@ -42,6 +42,8 @@ Spotify's **Development Mode** requires the account that owns the developer app 
 
 This app uses Spotify's 2026 playlist routes: `GET /playlists/{id}/items`, `POST /me/playlists`, and `POST /playlists/{id}/items`. Spotify permits item reads for playlists owned by or collaborative with the signed-in user. It cannot copy local files or removed items; those appear in the skipped count. The app copies metadata references to Spotify items, never audio files.
 
+For a public playlist the source account does not own, such as a followed playlist or a pasted link, the app reads Spotify's public embed page instead. That page lists at most 100 items, so the app refuses a longer playlist, or one whose size Spotify does not report, before creating anything, rather than copying only its first 100 items.
+
 The app creates copies with `public: false`. This keeps them off the user's public profile and out of search results; it does **not** restrict access through the playlist link. Spotify's Web API cannot change playlist access control. Use **Make private** in Spotify to restrict access. See [Spotify's playlist status documentation](https://developer.spotify.com/documentation/web-api/concepts/playlists#public-private-and-collaborative-status).
 
 Spotify can impose rate and development quotas. If an error occurs after the destination playlist was created, the app shows a link to the partial playlist and the number of items copied. Do not press Copy again without checking it, since that would create another playlist.

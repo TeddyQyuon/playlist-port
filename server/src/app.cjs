@@ -158,10 +158,12 @@ async function fetchPublicPlaylistMetadata(id) {
       const entity = d.props?.pageProps?.state?.data?.entity;
       if (entity) {
         const cover = entity.coverArt?.sources?.[0]?.url || entity.visualIdentity?.image?.[0]?.url || null;
+        const listed = Array.isArray(entity.trackList) ? entity.trackList.length : null;
         return {
           id,
           name: entity.name || entity.title || 'Public Playlist',
-          count: entity.trackList?.length ?? null,
+          // The embed page lists at most 100 items, so a full list is not a real count.
+          count: listed != null && listed < 100 ? listed : null,
           owner: entity.subtitle || 'Spotify',
           image: cover,
           isOwner: false,
@@ -236,16 +238,21 @@ app.get('/api/album/:id', wrap(async (req, res) => {
 }));
 
 app.post('/api/transfer', wrap(async (req, res) => {
-  const { playlistId, sourceType, name, useSecondAccount } = req.body || {};
+  const { playlistId, sourceType, name, useSecondAccount, expectedTotal } = req.body || {};
   if (!req.session.source) throw new SpotifyError('Connect a source Spotify account first.', 401);
   if (typeof name !== 'string') throw new SpotifyError('Enter a playlist name.', 400);
   if (typeof useSecondAccount !== 'boolean') throw new SpotifyError('Choose the destination account.', 400);
+  // The browser's library count lets the server spot copies Spotify's preview would cut short.
+  if (expectedTotal != null && !(Number.isSafeInteger(expectedTotal) && expectedTotal >= 0)) {
+    throw new SpotifyError('Invalid playlist size.', 400);
+  }
   const destinationAccount = useSecondAccount ? req.session.destination : req.session.source;
   if (!destinationAccount) throw new SpotifyError('Connect a destination Spotify account first.', 401);
   const result = await transferPlaylist({
     playlistId,
     sourceType,
     name: name.trim(),
+    expectedTotal: expectedTotal ?? null,
     sourceAccount: req.session.source,
     destinationAccount,
     request: spotifyRequest

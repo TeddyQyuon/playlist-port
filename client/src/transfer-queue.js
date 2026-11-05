@@ -1,4 +1,7 @@
-// Empty sources are terminal outcomes for one playlist, not for the whole queue.
+// Sources that Spotify cannot copy in full are terminal outcomes for one playlist,
+// not for the whole queue. No destination playlist exists for any of these codes.
+const SKIP_CODES = ['EMPTY_PLAYLIST', 'NO_TRANSFERABLE_ITEMS', 'PREVIEW_LIMIT'];
+
 export async function transferQueue({ playlists, transfer, onActive, onResult, shouldCancel }) {
   const results = [];
   const completed = [];
@@ -13,7 +16,7 @@ export async function transferQueue({ playlists, transfer, onActive, onResult, s
       completed.push(result);
       results.push(result);
     } catch (failure) {
-      if (failure.status === 422 && ['EMPTY_PLAYLIST', 'NO_TRANSFERABLE_ITEMS'].includes(failure.code)) {
+      if (failure.status === 422 && SKIP_CODES.includes(failure.code)) {
         const result = { id: playlist.id, name: playlist.name, status: 'skipped', message: failure.message };
         skipped.push(result);
         results.push(result);
