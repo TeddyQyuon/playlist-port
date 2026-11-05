@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AppleMusicIcon as SiApplemusic, DeezerIcon as SiDeezer, SpotifyIcon as SiSpotify, TidalIcon as SiTidal, YouTubeMusicIcon as SiYoutubemusic } from './BrandIcons.jsx';
 import {
   FiAlertTriangle, FiArrowLeft, FiArrowRight, FiCheck, FiCheckCircle, FiChevronDown, FiCopy,
-  FiDownload, FiExternalLink, FiHeart, FiInfo, FiLink2, FiLock, FiMoon, FiMusic, FiPlus, FiRefreshCw,
+  FiDownload, FiExternalLink, FiEyeOff, FiHeart, FiInfo, FiLink2, FiLock, FiMoon, FiMusic, FiPlus, FiRefreshCw,
   FiSearch, FiShield, FiSliders, FiSun, FiUser, FiUsers, FiWifiOff, FiX
 } from 'react-icons/fi';
 import { api } from './api.js';
@@ -280,7 +280,7 @@ function PlaylistArt({ playlist, className = '' }) {
 function PlaylistRow({ playlist, selected, onToggle, onInspect, liked = false }) {
   const ownerLabel = liked ? 'Collection' : playlist.sourceType === 'album' ? 'Album' : playlist.isOwner ? 'You' : 'Followed';
   const details = liked
-    ? 'Saved tracks from your Spotify library'
+    ? (playlist.count == null ? 'Saved tracks from your Spotify library' : `${playlist.count} saved ${playlist.count === 1 ? 'track' : 'tracks'}`)
     : `${playlist.count == null ? 'Track count checked at transfer' : `${playlist.count} ${playlist.count === 1 ? 'track' : 'tracks'}`} · by ${playlist.owner}`;
 
   return (
@@ -408,7 +408,7 @@ function downloadCsvReport(result, destinationName, acceptedMatches = {}) {
         ]);
       });
     }
-    if (item.isEmbedFallback) {
+    if (item.isEmbedFallback && item.originalTotal > item.total) {
       rows.push([plName, 'Public Preview Limit', `${item.copied} of ${item.originalTotal}`, 'Partial Preview', destinationName, 'Limited by Spotify embed preview']);
     }
   });
@@ -612,6 +612,7 @@ export default function App() {
   const [skippedPlaylists, setSkippedPlaylists] = useState([]);
   const [rateLimitCountdown, setRateLimitCountdown] = useState(0);
   const [customNames, setCustomNames] = useState({});
+  const [likedCount, setLikedCount] = useState(null);
 
   const workspaceRef = useRef(null);
   const transferViewRef = useRef(null);
@@ -622,7 +623,7 @@ export default function App() {
 
   const selectedPlaylists = selectedIds.map((id) => {
     if (id === 'liked-songs') {
-      return { id: 'liked-songs', name: 'Liked Songs', count: null, owner: session.source?.name || 'You', canCopy: true, isOwner: true, url: 'https://open.spotify.com/collection/tracks' };
+      return { id: 'liked-songs', name: 'Liked Songs', count: likedCount, owner: session.source?.name || 'You', canCopy: true, isOwner: true, url: 'https://open.spotify.com/collection/tracks' };
     }
     return playlists.find((p) => p.id === id);
   }).filter(Boolean);
@@ -764,9 +765,11 @@ export default function App() {
       setPlaylists([]);
       setNextOffset(null);
       setPlaylistTotal(null);
+      setLikedCount(null);
       return;
     }
     loadPlaylists(0, true);
+    loadLikedCount();
   }, [session.source?.id]);
 
   // Start at the transfer monitor so long selections never require a page search.
@@ -854,6 +857,18 @@ export default function App() {
     setResult(null);
     setPartial(null);
     loadPlaylists(0, true);
+    loadLikedCount();
+  }
+
+  // Liked Songs is not in the playlist list, so its size comes from its own lookup.
+  // A failed lookup keeps the count unknown; the transfer still checks the real size.
+  async function loadLikedCount() {
+    try {
+      const data = await api('/playlist/liked-songs');
+      setLikedCount(Number.isSafeInteger(data.count) ? data.count : null);
+    } catch {
+      setLikedCount(null);
+    }
   }
 
   function connect(slot) {
@@ -862,9 +877,14 @@ export default function App() {
 
   async function disconnect(slot) {
     setError('');
+    // Without a source there is nowhere in the workspace to disconnect the destination,
+    // so disconnecting the source signs out of both accounts.
+    const slots = slot === 'source' && session.destination ? ['source', 'destination'] : [slot];
     try {
-      await api(`/auth/disconnect/${slot}`, { method: 'POST' });
-      setSession((current) => ({ ...current, [slot]: null }));
+      for (const current of slots) {
+        await api(`/auth/disconnect/${current}`, { method: 'POST' });
+        setSession((state) => ({ ...state, [current]: null }));
+      }
       if (slot === 'source') {
         setSelectedIds([]);
         removeSessionItem('playlist-port.selected');
@@ -953,7 +973,7 @@ export default function App() {
       setCurrentStep(2);
       setPlaylistQuery('');
       setHeroUrlInput('');
-      setNotice(source.type === 'album' ? `Album loaded: ${data.name}. Its tracks will be copied into a new private playlist.` : `Playlist loaded: ${data.name}.`);
+      setNotice(source.type === 'album' ? `Album loaded: ${data.name}. Its tracks will be copied into a new unlisted playlist.` : `Playlist loaded: ${data.name}.`);
     } catch (err) {
       setError(err.message || `Could not load that ${source.type}.`);
     } finally {
@@ -1045,7 +1065,9 @@ export default function App() {
             name: (selectedPlaylists.length === 1
               ? newName.trim()
               : (customNames[playlist.id] || `${playlist.name} (copy)`)).slice(0, 100),
-            useSecondAccount
+            useSecondAccount,
+            // Lets the server refuse a copy that Spotify's public preview would cut short.
+            ...(Number.isSafeInteger(playlist.count) ? { expectedTotal: playlist.count } : {})
           })
         })
       });
@@ -1185,12 +1207,12 @@ export default function App() {
               </form>
             </div>
             {!session.source && session.configured && (
-              <p className="hero-permission"><FiLock aria-hidden="true" /> Spotify will ask you to read playlists and create a private copy. No playback control.</p>
+              <p className="hero-permission"><FiLock aria-hidden="true" /> Spotify will ask you to read playlists and create an unlisted copy. No playback control.</p>
             )}
             <ul className="trust-list">
               <li><FiCheck aria-hidden="true" /> Free &amp; Premium accounts</li>
               <li><FiCheck aria-hidden="true" /> Originals never change</li>
-              <li><FiCheck aria-hidden="true" /> Private copy by default</li>
+              <li><FiCheck aria-hidden="true" /> Unlisted copy by default</li>
             </ul>
           </div>
 
@@ -1198,7 +1220,7 @@ export default function App() {
             <div className="preview-card preview-live">
               <div className="preview-head">
                 <span className="preview-title"><span className="status-dot" aria-hidden="true" /> {session.source ? 'Workspace ready' : 'Transfer preview'}</span>
-                <span className="preview-lock"><FiLock aria-hidden="true" /> Private by default</span>
+                <span className="preview-lock"><FiEyeOff aria-hidden="true" /> Unlisted by default</span>
               </div>
               <div className="preview-route">
                 <div className="preview-account">
@@ -1214,7 +1236,7 @@ export default function App() {
                   <span className="preview-avatar preview-avatar-alt"><SiSpotify aria-hidden="true" /></span>
                   <span>
                     <small>TO</small>
-                    <strong className="truncate">{useSecondAccount ? (session.destination?.name || 'Second account') : 'New private playlist'}</strong>
+                    <strong className="truncate">{useSecondAccount ? (session.destination?.name || 'Second account') : 'New unlisted playlist'}</strong>
                     <em>{useSecondAccount ? (session.destination ? 'Connected' : 'Not connected') : 'Same Spotify account'}</em>
                   </span>
                 </div>
@@ -1278,7 +1300,7 @@ export default function App() {
         <section className="proof-strip" aria-label="Playlist Port at a glance">
           <div className="proof-inner content-width">
             <div><strong>Order</strong><span>Every copied item keeps its place</span></div>
-            <div><strong>Private</strong><span>Copies start hidden from your profile</span></div>
+            <div><strong>Unlisted</strong><span>Copies stay off your profile and out of search</span></div>
             <div><strong>0</strong><span>Playlists stored on our servers</span></div>
             <div><strong>Free</strong><span>For Free &amp; Premium Spotify accounts</span></div>
           </div>
@@ -1367,7 +1389,7 @@ export default function App() {
                   <span className="step-view-number" aria-hidden="true">1</span>
                   <div>
                     <h3>Connect your source</h3>
-                    <p>Connect Spotify to browse your library. We request read access and permission to create a private copy.</p>
+                    <p>Connect Spotify to browse your library. We request read access and permission to create an unlisted copy.</p>
                   </div>
                 </div>
 
@@ -1409,7 +1431,7 @@ export default function App() {
                             onClick={() => disconnect('source')}
                             disabled={sessionLoading}
                           >
-                            Disconnect
+                            {session.destination ? 'Disconnect both accounts' : 'Disconnect'}
                           </button>
                         </>
                       ) : (
@@ -1423,6 +1445,16 @@ export default function App() {
                         </button>
                       )}
                     </div>
+
+                    {/* A source session can expire first. Keep the destination removable. */}
+                    {!session.source && session.destination && (
+                      <AccountCard
+                        label="DESTINATION SPOTIFY ACCOUNT"
+                        account={session.destination}
+                        onDisconnect={() => disconnect('destination')}
+                        disabled={sessionLoading}
+                      />
+                    )}
 
                     <span className="source-spotlight-meta">
                       <FiShield aria-hidden="true" /> Official Spotify API · encrypted 24-hour session
@@ -1466,7 +1498,7 @@ export default function App() {
                     <FiLink2 aria-hidden="true" />
                     <div>
                       <strong>Load a Spotify playlist or album via link</strong>
-                      <p>Paste a playlist or album link, then connect Spotify to load its tracks. Albums are copied into new private playlists.</p>
+                      <p>Paste a playlist or album link, then connect Spotify to load its tracks. Albums are copied into new unlisted playlists.</p>
                     </div>
                   </div>
                   <form
@@ -1590,7 +1622,7 @@ export default function App() {
                     <div className={`spotify-link-panel ${pastedSource.error ? 'is-error' : ''}`}>
                       <strong>{pastedSource.error ? 'Check this link' : `Spotify ${pastedSource.type} link`}</strong>
                       <p>{pastedSource.error || (pastedSource.type === 'album'
-                        ? 'Load this album to copy its tracks into a new private playlist, in album order.'
+                        ? 'Load this album to copy its tracks into a new unlisted playlist, in album order.'
                         : 'Load this playlist to add it to your selection.')}</p>
                       {!pastedSource.error && <button type="button" className="btn btn-primary btn-sm" disabled={urlLoading} onClick={loadPastedPlaylist}>{urlLoading ? 'Loading…' : `Load ${pastedSource.type}`}</button>}
                       <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPlaylistQuery(''); setError(''); }}>Clear link</button>
@@ -1646,7 +1678,7 @@ export default function App() {
                         playlist={{
                           id: 'liked-songs',
                           name: 'Liked Songs',
-                          count: null,
+                          count: likedCount,
                           owner: session.source?.name || 'You',
                           isOwner: true,
                           url: 'https://open.spotify.com/collection/tracks'
@@ -1656,7 +1688,7 @@ export default function App() {
                         onInspect={() => setPreviewModalPlaylist({
                           id: 'liked-songs',
                           name: 'Liked Songs',
-                          count: null,
+                          count: likedCount,
                           owner: session.source?.name || 'You',
                           isOwner: true,
                           url: 'https://open.spotify.com/collection/tracks'
@@ -1757,7 +1789,7 @@ export default function App() {
                   <div className="destination-service-copy">
                     <span className="eyebrow">Destination service</span>
                     <strong>Spotify</strong>
-                    <small>New playlists are created privately in the account you choose below.</small>
+                    <small>New playlists are created unlisted in the account you choose below.</small>
                   </div>
                   <span className="tag tag-mine">Active</span>
                 </div>
@@ -1777,7 +1809,7 @@ export default function App() {
                       <span className="segment-icon" aria-hidden="true"><FiUser /></span>
                       <span className="segment-copy">
                         <strong>Same Spotify account</strong>
-                        <small>Create new private playlist here</small>
+                        <small>Create a new unlisted playlist here</small>
                       </span>
                       <span className="radio-ui" aria-hidden="true" />
                     </label>
@@ -1823,7 +1855,7 @@ export default function App() {
                       <FiLock aria-hidden="true" />
                       <div>
                         <strong>Destination permissions</strong>
-                        <p>Write access to create a new private playlist and insert items in your destination account. Originals stay untouched.</p>
+                        <p>Write access to create a new unlisted playlist and insert items in your destination account. Originals stay untouched.</p>
                       </div>
                     </div>
                     <div className="transparency-item">
@@ -1907,7 +1939,7 @@ export default function App() {
                   <div className="review-manifest-header">
                     <h4>Playlists to copy ({selectedPlaylists.length})</h4>
                     <span className="manifest-track-total">
-                      {totalTracksSelected > 0 ? `${totalTracksSelected}${hasUnknownTrackCount ? '+' : ''} total tracks` : 'Tracks verified at transfer'}
+                      {totalTracksSelected > 0 || !hasUnknownTrackCount ? `${totalTracksSelected}${hasUnknownTrackCount ? '+' : ''} total tracks` : 'Tracks verified at transfer'}
                     </span>
                   </div>
 
@@ -1984,7 +2016,7 @@ export default function App() {
                     disabled={!readyToCopy || transferring}
                     onClick={handleStartTransfer}
                   >
-                    <FiCopy aria-hidden="true" /> Copy {selectedPlaylists.length === 1 ? 'Playlist' : `${selectedPlaylists.length} Playlists`} ({totalTracksSelected > 0 ? `${totalTracksSelected} tracks` : 'verified'}) <FiArrowRight aria-hidden="true" />
+                    <FiCopy aria-hidden="true" /> Copy {selectedPlaylists.length === 1 ? 'Playlist' : `${selectedPlaylists.length} Playlists`} ({totalTracksSelected > 0 || !hasUnknownTrackCount ? `${totalTracksSelected} tracks` : 'verified'}) <FiArrowRight aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -2147,7 +2179,7 @@ export default function App() {
                       <span className="sr-only" aria-live="polite">{copyState === 'copied' ? 'Link copied to clipboard.' : copyState === 'failed' ? 'Could not copy the link.' : ''}</span>
                     </div>
 
-                    <p className="result-note"><FiInfo aria-hidden="true" /><span>The copy is hidden from your public profile by default.</span></p>
+                    <p className="result-note"><FiInfo aria-hidden="true" /><span>The copy is unlisted: it stays off your public profile, but anyone with the link can open it.</span></p>
 
                     <div className="result-again">
                       <span className="result-again-icon" aria-hidden="true"><FiPlus /></span>
@@ -2258,7 +2290,7 @@ export default function App() {
             <article className="how-card">
               <div className="how-card-top"><span className="how-icon"><FiLink2 aria-hidden="true" /></span><span className="how-index">STEP 01</span></div>
               <h3>Connect Spotify</h3>
-              <p>Approve playlist access so Playlist Port can read the source and create a private copy for the destination.</p>
+              <p>Approve playlist access so Playlist Port can read the source and create an unlisted copy for the destination.</p>
             </article>
             <article className="how-card">
               <div className="how-card-top"><span className="how-icon"><FiMusic aria-hidden="true" /></span><span className="how-index">STEP 02</span></div>
@@ -2305,7 +2337,7 @@ export default function App() {
             </details>
             <details>
               <summary>Can I copy a playlist I do not own?<span className="faq-icon" aria-hidden="true"><FiPlus /></span></summary>
-              <p>Yes. Paste a public Spotify playlist link into the search box in the workspace. Private playlists from other accounts cannot be read through Spotify's API, so the owner would need to make the playlist public first.</p>
+              <p>Yes, if it is public and has up to 100 items. Paste its link into the search box in the workspace, or pick it from your followed playlists. Spotify only shares the first 100 items of playlists you do not own, so Playlist Port will not copy a longer one. In Spotify, add its songs to a playlist you own, then copy that playlist. Private playlists from other accounts cannot be read at all, so the owner would need to make the playlist public first.</p>
             </details>
             <details>
               <summary>What happens to local files and unavailable tracks?<span className="faq-icon" aria-hidden="true"><FiPlus /></span></summary>
@@ -2313,7 +2345,7 @@ export default function App() {
             </details>
             <details>
               <summary>Who can see the new playlist?<span className="faq-icon" aria-hidden="true"><FiPlus /></span></summary>
-              <p>The copy is created private, so it does not appear on your public profile or in Spotify search. Anyone with the link can still open it, so share it only with people you trust.</p>
+              <p>The copy is unlisted: it does not appear on your public profile or in Spotify search, but anyone with the link can open it, and Spotify labels it a public playlist. To restrict access, open it in Spotify and choose Make private.</p>
             </details>
             <details>
               <summary>Where is my Spotify data stored?<span className="faq-icon" aria-hidden="true"><FiPlus /></span></summary>
@@ -2331,7 +2363,7 @@ export default function App() {
           <div>
             <span className="kicker">READY WHEN YOU ARE</span>
             <h2 id="cta-title">Your next playlist is a copy away.</h2>
-            <p className="final-cta-note"><FiLock aria-hidden="true" /> Private copy by default · Free &amp; Premium Spotify accounts · Originals never change</p>
+            <p className="final-cta-note"><FiEyeOff aria-hidden="true" /> Unlisted copy by default · Free &amp; Premium Spotify accounts · Originals never change</p>
           </div>
           <button
             type="button"
