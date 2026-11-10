@@ -7,3 +7,22 @@ dist/
 !.env.example
 *.log
 .DS_Store
+
+# Generated files and local agent/editor state
+Thumbs.db
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.idea/
+.kiro/
+.codex/
+.cursor/
+AGENTS.md
+CLAUDE.md
+*_UPGRADE.md
+build/
+.next/
+.agents/
+PLAN.md
+docs/logo-audit-*.md
+.claude/

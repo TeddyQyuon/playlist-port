@@ -1,73 +1,56 @@
 # Playlist Port
 
-A React + Express playlist transfer app. The first release copies Spotify playlists to the same Spotify account or to a second Spotify account. It creates a **new playlist hidden from the destination's public profile** and leaves the original untouched.
+A React and Express app for copying Spotify playlists and albums into a new playlist in the same account or a second account.
 
-## What it does
+**[Live demo](https://playlist-port-nine.vercel.app/)** Â· [Portfolio case study](https://teddy-qyuon-portfolio.vercel.app/projects/playlist-port-spotify-mover)
 
-1. Connect your source Spotify account.
-2. Pick a playlist you own or collaborate on.
-3. Choose the same account or connect another Spotify account as the destination.
-4. Name the copy and transfer its tracks and episodes in their original order.
-5. Open the new playlist in Spotify. The result shows any unavailable or local items that could not be copied. Choose **Make private** in Spotify if you want to restrict access through its link.
+![Playlist Port transfer workspace with source selection, queue and destination controls](.github/preview.webp)
 
-The client uses React, Vite, plain JavaScript, CSS, and React Icons. The server uses Node.js and Express. OAuth credentials and access tokens stay in the server session; the browser receives only account names and playlist details. This first release has no database or transfer history.
+## Scope and contribution
 
-## Spotify developer setup
+An AI-assisted personal MVP by Wai Yan Hpone Lat. It combines Spotify OAuth, paginated source reads, ordered batch writes and a transfer queue with completion, partial-failure and skipped-item feedback.
 
-The source and destination can each use **Spotify Free or Premium**. Playlist Port does not check either account's subscription, and copying playlists does not use Premium-only playback features.
+- Copy supported playlists or albums while preserving item order.
+- Search and filter the queue, follow progress and cancel a transfer.
+- Empty sources are skipped; unsupported links receive guidance.
+- Spotify-to-Spotify transfers are supported. Other music services are planned.
 
-Spotify's **Development Mode** requires the account that owns the developer app to keep an active Spotify Premium subscription and currently limits a new app to five authorized users. This requirement applies to the app owner, not to every account transferring playlists. Add both transfer accounts to the app's user allowlist. If either transfer account also owns the developer app, that account must retain Premium for the app to function. The source account must own or collaborate on the playlist it selects. A public URL does not remove Spotify's development-user limit. See [Spotify's current Development Mode rules](https://developer.spotify.com/documentation/web-api/concepts/quota-modes).
+Transfers require Spotify accounts approved for the developer app. Copies use `public: false`, which hides them from the public profile; use Spotifyâ€™s **Make private** control to restrict link access. No audio files are copied.
 
-1. Create an app at [Spotify for Developers](https://developer.spotify.com/dashboard). Copy its **Client ID** and **Client Secret**.
-2. In the Spotify app settings, register this exact redirect URI:
+## Stack
 
-   ```text
-   http://127.0.0.1:3001/api/auth/callback
-   ```
+React, Vite, JavaScript, CSS, Node.js, Express and the Spotify Web API. OAuth credentials and access tokens stay on the server.
 
-   Spotify no longer accepts `localhost` as an HTTP redirect alias. Use `127.0.0.1` everywhere locally.
-3. Copy `server/.env.example` to `server/.env`. Fill in `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET`. Replace `SESSION_SECRET` with a random string of at least 32 characters. Keep `.env` private.
-4. From the project root, run:
+## Run locally
 
-   ```bash
-   npm install
-   npm run dev
-   ```
+Verified locally with Node.js 22.
 
-5. Open **http://127.0.0.1:5173**. Connect the source account. To use another account as the destination, select that option and connect it separately in the Spotify consent page.
-
-`npm run build` builds the React client. To use `npm start` to serve the built client and API on `http://127.0.0.1:3001`, first set `CLIENT_ORIGIN=http://127.0.0.1:3001` in `server/.env`. Restore `CLIENT_ORIGIN=http://127.0.0.1:5173` when using `npm run dev`. Keep the Spotify callback on port 3001 in either mode. `npm test` checks playlist pagination, order, batching, and partial failures with mocked Spotify responses.
-
-## Current Spotify API behavior
-
-This app uses Spotify's 2026 playlist routes: `GET /playlists/{id}/items`, `POST /me/playlists`, and `POST /playlists/{id}/items`. Spotify permits item reads for playlists owned by or collaborative with the signed-in user. It cannot copy local files or removed items; those appear in the skipped count. The app copies metadata references to Spotify items, never audio files.
-
-For a public playlist the source account does not own, such as a followed playlist or a pasted link, the app reads Spotify's public embed page instead. That page lists at most 100 items, so the app refuses a longer playlist, or one whose size Spotify does not report, before creating anything, rather than copying only its first 100 items.
-
-The app creates copies with `public: false`. This keeps them off the user's public profile and out of search results; it does **not** restrict access through the playlist link. Spotify's Web API cannot change playlist access control. Use **Make private** in Spotify to restrict access. See [Spotify's playlist status documentation](https://developer.spotify.com/documentation/web-api/concepts/playlists#public-private-and-collaborative-status).
-
-Spotify can impose rate and development quotas. If an error occurs after the destination playlist was created, the app shows a link to the partial playlist and the number of items copied. Do not press Copy again without checking it, since that would create another playlist.
-
-## Project layout
-
-```text
-client/src/App.jsx          React flow and service picker
-client/src/styles.css       Responsive visual design
-server/src/app.cjs          Express routes, OAuth, session
-server/src/spotify.cjs      Spotify token and API calls
-server/src/transfer.cjs     Playlist pagination and copy logic
-server/test/                Mocked transfer tests
+```bash
+git clone https://github.com/TeddyQyuon/playlist-port.git
+cd playlist-port
+npm ci
 ```
 
-## Deploy to Vercel
+Copy `server/.env.example` to `server/.env`. Configure your Spotify client ID, client secret and a random session secret locally. Register `http://127.0.0.1:3001/api/auth/callback` as the Spotify redirect URI, and add the source and destination accounts to the developer-app allowlist.
 
-The root `app.cjs` exports the Express API as one Vercel Function. `npm run build` puts the Vite frontend in the root `public/` directory for Vercel's CDN. The server uses AES-GCM encrypted, HttpOnly cookies for Spotify connections so sessions survive across Vercel function instances; only the server can read their contents.
+```bash
+npm run dev
+```
 
-HTML is served with `Cache-Control: no-store` and without filesystem-based cache validators. This prevents cached HTML from requesting a removed JavaScript bundle after a deployment. Missing asset URLs return 404 instead of the app's HTML document.
+Open `http://127.0.0.1:5173`. The API runs on port 3001. Use `127.0.0.1` consistently for local OAuth callbacks. See [Spotifyâ€™s quota-mode documentation](https://developer.spotify.com/documentation/web-api/concepts/quota-modes) for current access requirements.
 
-1. Import this repository into Vercel. Keep its root directory at the repository root. The `vercel.json` file selects Express and runs `npm run build`.
-2. Add **Production** environment variables `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REDIRECT_URI`, `CLIENT_ORIGIN` and `SESSION_SECRET`. Use the permanent production domain for `CLIENT_ORIGIN`, for example `https://playlist-port.vercel.app`. Set `SPOTIFY_REDIRECT_URI` to that same origin plus `/api/auth/callback`. Generate a unique random `SESSION_SECRET` of at least 32 characters. Never add these values to Git.
-3. Register that **exact** HTTPS redirect URI in the Spotify Developer Dashboard and allowlist each Spotify account that will use the app. Redeploy after changing Vercel environment variables.
-4. Check `/api/health`, `/api/session` (which must report `configured: true`), then connect an allowlisted Spotify account and copy a small test playlist before sharing the demo link.
+## Checks and production build
 
-Vercel Preview URLs are different from the production domain, so this setup authorizes the permanent production URL only. The app uses no database; encrypted session cookies expire after 24 hours. The encrypted cookie is never accessible to client JavaScript, but users should still disconnect when using a shared computer.
+```bash
+npm test
+npm run build
+```
+
+`npm start` serves the built client and API. Set `CLIENT_ORIGIN` to the serving origin in your local server environment. Tests use mocked Spotify responses; a passing test run does not establish that an unapproved account can transfer playlists.
+
+## Developer documentation
+
+- [Setup and deployment](SETUP_AND_DEPLOY.md)
+- [Security notes](SECURITY.md)
+
+The repository also retains design-token and accessibility tooling used by its npm scripts.
